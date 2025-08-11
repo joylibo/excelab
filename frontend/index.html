@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excelab Pro - 智能表格合并</title>
+    <link rel="stylesheet" href="/css/style.css"> 
+</head>
+<body>
+    <div class="container">
+        <h2>Excelab Pro - 智能表格合并</h2>
+        <form id="upload-form">
+            <div class="file-upload-wrapper">
+                <span class="file-upload-label">点击或拖拽文件到此处</span>
+                <input type="file" name="files" id="file-input" multiple required>
+            </div>
+            <div id="file-list"></div>
+            <div class="options">
+                <h4>合并模式</h4>
+                <label>
+                    <input type="radio" name="merge_mode" value="outer" checked>
+                    保留所有字段 (缺失处填空)
+                </label>
+                <label>
+                    <input type="radio" name="merge_mode" value="inner">
+                    仅保留共同字段
+                </label>
+            </div>
+            <button type="submit" class="submit-btn" id="submit-button" disabled>上传并合并</button>
+            <div id="loader">正在处理，请稍候...</div>
+            <div id="error-message"></div>
+        </form>
+    </div>
+    <script src="/js/main.js"></script> </body>
+</html>
