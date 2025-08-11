@@ -2,6 +2,8 @@ import pandas as pd
 import logging
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, status
 from fastapi.responses import StreamingResponse, HTMLResponse
+# 新增: 导入CORS中间件
+from fastapi.middleware.cors import CORSMiddleware
 from io import BytesIO
 from typing import List
 from enum import Enum
@@ -17,29 +19,35 @@ app = FastAPI(
     description="一个智能的表格合并工具，支持多种合并策略和更友好的用户界面。",
 )
 
+# --- 新增：配置CORS ---
+# 允许所有来源的跨域请求。在生产环境中应配置得更严格。
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允许所有来源
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有方法
+    allow_headers=["*"],  # 允许所有头部
+)
+
+
 # --- 定义合并模式的枚举 ---
 class MergeMode(str, Enum):
-    OUTER = "outer"  # 保留所有列，缺失值填空
-    INNER = "inner"  # 仅保留公共列
+    OUTER = "outer"
+    INNER = "inner"
 
 # --- 辅助函数：从上传文件中读取DataFrame ---
 async def _read_dataframe_from_uploadfile(file: UploadFile) -> pd.DataFrame | None:
-    """从UploadFile对象中安全地读取DataFrame，支持xlsx, xls, csv格式。"""
+    # ... (此函数无需改动) ...
     filename = file.filename.lower()
     try:
         content = await file.read()
         if not content:
             logger.warning(f"文件 '{filename}' 为空，已跳过。")
             return None
-
         file_bytes = BytesIO(content)
-
         if filename.endswith((".xlsx", ".xls")):
-            # 为了简化，我们默认只读取第一个工作表
-            # 如果需要合并多工作表，逻辑会更复杂
             df = pd.read_excel(file_bytes, engine="openpyxl")
         elif filename.endswith(".csv"):
-            # 尝试使用不同的编码格式以提高兼容性
             try:
                 df = pd.read_csv(file_bytes)
             except UnicodeDecodeError:
@@ -48,22 +56,18 @@ async def _read_dataframe_from_uploadfile(file: UploadFile) -> pd.DataFrame | No
         else:
             logger.warning(f"不支持的文件格式: '{filename}'，已跳过。")
             return None
-        
         if df.empty:
             logger.warning(f"文件 '{filename}' 读取后数据为空，已跳过。")
             return None
-
         logger.info(f"成功读取并解析文件: '{filename}'")
         return df
-
     except Exception as e:
         logger.error(f"处理文件 '{filename}' 时发生错误: {e}")
         return None
 
-# --- 前端UI界面 ---
+# --- 前端UI界面 (JavaScript部分有重大更新) ---
 @app.get("/", response_class=HTMLResponse)
 def get_upload_form():
-    """提供一个现代化、交互友好的文件上传界面。"""
     return """
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -72,6 +76,7 @@ def get_upload_form():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Excelab Pro - 智能表格合并</title>
         <style>
+            /* ... (CSS样式无需改动) ... */
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; }
             .container { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 500px; }
             h2 { color: #333; margin-bottom: 20px; }
@@ -86,19 +91,19 @@ def get_upload_form():
             .submit-btn { background-color: #28a745; color: white; padding: 12px 20px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; width: 100%; transition: background-color 0.3s; }
             .submit-btn:hover { background-color: #218838; }
             .submit-btn:disabled { background-color: #ccc; cursor: not-allowed; }
-            #loader { display: none; margin-top: 20px; color: #555; }
+            #loader { display: none; margin-top: 20px; color: #555; font-weight: bold; }
+            #error-message { display: none; margin-top: 20px; color: #d9534f; background-color: #f2dede; border: 1px solid #ebccd1; padding: 10px; border-radius: 5px; }
         </style>
     </head>
     <body>
         <div class="container">
             <h2>Excelab Pro - 智能表格合并</h2>
-            <form id="upload-form" action="/merge" method="post" enctype="multipart/form-data">
+            <form id="upload-form">
                 <div class="file-upload-wrapper">
                     <span class="file-upload-label">点击或拖拽文件到此处</span>
                     <input type="file" name="files" id="file-input" multiple required>
                 </div>
                 <div id="file-list"></div>
-
                 <div class="options">
                     <h4>合并模式</h4>
                     <label>
@@ -110,9 +115,9 @@ def get_upload_form():
                         仅保留共同字段
                     </label>
                 </div>
-
                 <button type="submit" class="submit-btn" id="submit-button" disabled>上传并合并</button>
                 <div id="loader">正在处理，请稍候...</div>
+                <div id="error-message"></div>
             </form>
         </div>
         <script>
@@ -121,6 +126,7 @@ def get_upload_form():
             const submitButton = document.getElementById('submit-button');
             const form = document.getElementById('upload-form');
             const loader = document.getElementById('loader');
+            const errorMessage = document.getElementById('error-message');
 
             fileInput.addEventListener('change', () => {
                 fileList.innerHTML = '';
@@ -136,84 +142,112 @@ def get_upload_form():
                 }
             });
 
-            form.addEventListener('submit', () => {
+            // *** 核心改动：用异步函数替换原有的submit监听器 ***
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault(); // 1. 阻止表单的默认提交行为
+
+                // 2. 显示加载状态，隐藏按钮和旧的错误信息
                 submitButton.style.display = 'none';
+                errorMessage.style.display = 'none';
                 loader.style.display = 'block';
+
+                const formData = new FormData(form); // 3. 收集表单数据 (包括文件和选项)
+
+                try {
+                    // 4. 使用fetch API异步发送请求
+                    const response = await fetch('/merge', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    // 5. 处理响应
+                    if (response.ok) {
+                        // 5a. 如果响应成功(200 OK)，则处理文件下载
+                        if (response.headers.get('Content-Type').includes('sheet')) {
+                            const blob = await response.blob(); // 获取文件内容的二进制对象
+                            const url = window.URL.createObjectURL(blob); // 创建一个临时的URL
+                            const a = document.createElement('a'); // 创建一个隐藏的下载链接
+                            a.style.display = 'none';
+                            a.href = url;
+                            a.download = 'merged_pro.xlsx'; // 设置下载文件名
+                            document.body.appendChild(a);
+                            a.click(); // 模拟点击以下载
+                            window.URL.revokeObjectURL(url); // 释放URL资源
+                            a.remove();
+                        }
+                    } else {
+                        // 5b. 如果服务器返回错误 (如 400, 500)
+                        const errorData = await response.json(); // FastAPI的HTTPException会返回JSON
+                        errorMessage.textContent = '错误: ' + (errorData.detail || '未知错误');
+                        errorMessage.style.display = 'block';
+                    }
+                } catch (error) {
+                    // 6. 处理网络错误等
+                    errorMessage.textContent = '请求失败，请检查网络连接。';
+                    errorMessage.style.display = 'block';
+                } finally {
+                    // 7. 无论成功或失败，最后都恢复UI到初始状态
+                    loader.style.display = 'none';
+                    submitButton.style.display = 'block';
+                    // 可选：清空文件选择，让用户可以开始下一次操作
+                    // fileInput.value = ''; 
+                    // fileList.innerHTML = '';
+                    // submitButton.disabled = true;
+                }
             });
         </script>
     </body>
     </html>
     """
 
-# --- 核心合并逻辑 ---
+# --- 核心合并逻辑 (此函数无需改动) ---
 @app.post("/merge")
 async def merge_files(
     files: List[UploadFile] = File(...),
     merge_mode: MergeMode = Form(...)
 ):
-    """接收文件和合并模式，执行合并并返回结果。"""
+    # ... (此函数无需改动) ...
     if not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="没有提供任何文件。"
         )
-
-    # 1. 异步读取所有文件到DataFrame列表
     dataframes = []
     for file in files:
         df = await _read_dataframe_from_uploadfile(file)
         if df is not None:
             dataframes.append(df)
-
     if not dataframes:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="上传的文件均无法解析或内容为空，请检查文件格式和内容。"
         )
-    
     logger.info(f"成功读取 {len(dataframes)} 个文件。合并模式: {merge_mode.value}")
-
-    # 2. 根据合并模式执行合并
     try:
         if merge_mode == MergeMode.OUTER:
-            # outer模式：保留所有列，Pandas concat默认行为
             merged_df = pd.concat(dataframes, ignore_index=True, join='outer')
-
         elif merge_mode == MergeMode.INNER:
-            # inner模式：仅保留所有文件的共同列
-            # 计算所有DataFrame列名的交集
             common_columns = list(reduce(lambda x, y: x.intersection(y), [set(df.columns) for df in dataframes]))
-            
             if not common_columns:
                  raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="所选文件之间没有任何共同的字段（列名），无法在'仅保留共同字段'模式下合并。"
                 )
-            
-            # 使用共同列进行concat
             merged_df = pd.concat(
                 [df[common_columns] for df in dataframes],
                 ignore_index=True
             )
-        
         logger.info(f"合并完成。最终表格尺寸: {merged_df.shape}")
-
     except Exception as e:
         logger.error(f"合并DataFrame时发生错误: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"在服务器端合并数据时发生错误: {e}"
         )
-
-
-    # 3. 将合并结果写入内存中的Excel文件
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         merged_df.to_excel(writer, sheet_name="Merged_Data", index=False)
-    
     output.seek(0)
-
-    # 4. 以流式响应返回文件
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
