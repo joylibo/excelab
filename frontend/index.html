@@ -717,10 +717,10 @@
         </div>
     </div>
 
-    <!-- <div class="debug-info" id="debug-info">
+    <div class="debug-info" id="debug-info">
         <strong>调试信息:</strong>
         <div id="event-log"></div>
-    </div> -->
+    </div>
 
     <script>
         // 调试信息记录
@@ -729,6 +729,9 @@
             const timestamp = new Date().toLocaleTimeString();
             logElement.innerHTML = `<div>[${timestamp}] ${message}</div>` + logElement.innerHTML;
         }
+
+        // --- 定义基地址 (推荐方法：使用相对路径) ---
+        const API_BASE_URL = ''; // 空字符串表示相对路径，请求会发送到当前域名 (即后端服务的域名和端口)
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
@@ -892,7 +895,7 @@
                 const formData = new FormData();
                 formData.append('file', file);
 
-                const response = await fetch('http://127.0.0.1:8000/api/split/columns', {
+                const response = await fetch(`${API_BASE_URL}/api/split/columns`, {
                     method: 'POST',
                     body: formData,
                 });
@@ -967,7 +970,7 @@
                 // Step 1: 请求预览
                 logEvent('正在上传文件并请求预览...');
                 simulateProgress(progress, 1500); // 模拟进度，实际应由后端推送
-                const previewResponse = await fetch('http://127.0.0.1:8000/api/merge/preview', {
+                const previewResponse = await fetch(`${API_BASE_URL}/api/merge/preview`, {
                     method: 'POST',
                     body: formData,
                 });
@@ -1019,7 +1022,7 @@
                     simulateProgress(progress, 2000); // 模拟下载进度
 
                     try {
-                        const downloadResponse = await fetch('http://127.0.0.1:8000/api/merge', {
+                        const downloadResponse = await fetch(`${API_BASE_URL}/api/merge/preview`, {
                             method: 'POST',
                             body: formData, // 复用之前的 formData
                         });
@@ -1121,7 +1124,7 @@
                 logEvent('正在上传文件并请求拆分...');
                 simulateProgress(progress, 2000); // 模拟进度
 
-                const splitResponse = await fetch('http://127.0.0.1:8000/api/split', {
+                const splitResponse = await fetch(`${API_BASE_URL}/api/split`, {
                     method: 'POST',
                     body: formData,
                 });
@@ -1229,7 +1232,7 @@
                 logEvent('正在上传文件并请求清理预览...');
                 simulateProgress(progress, 1500); // 模拟进度
 
-                const previewResponse = await fetch('http://127.0.0.1:8000/api/clean/preview', {
+                const previewResponse = await fetch(`${API_BASE_URL}/api/clean/preview`, {
                     method: 'POST',
                     body: formData,
                 });
@@ -1308,7 +1311,7 @@
                     simulateProgress(progress, 2000); // 模拟下载进度
 
                     try {
-                        const downloadResponse = await fetch('http://127.0.0.1:8000/api/clean', {
+                        const downloadResponse = await fetch(`${API_BASE_URL}/api/clean`, {
                             method: 'POST',
                             body: formData, // 复用之前的 formData
                         });

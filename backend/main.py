@@ -4,6 +4,7 @@ import logging
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, status, Query
 from fastapi.responses import StreamingResponse, JSONResponse # 添加 JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from io import BytesIO
 from typing import List, Optional
@@ -41,6 +42,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- 挂载前端静态文件 ---
+# 假设你的项目根目录结构如上所示
+# 获取当前文件 (main.py) 的目录
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 构造 frontend 目录的路径
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+
+# 检查 frontend 目录是否存在
+if os.path.isdir(FRONTEND_DIR):
+    # 挂载 frontend 目录到根路径 "/"
+    # 这意味着访问 http://127.0.0.1:8000/ 将会返回 frontend/index.html
+    # 访问 http://127.0.0.1:8000/style.css 将会返回 frontend/style.css
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+else:
+    # 如果没有 frontend 目录，可以简单地返回一个提示信息
+    @app.get("/")
+    def read_root():
+        return {"message": "Frontend directory not found. Please ensure the 'frontend' folder exists at the project root."}
+# --- 挂载结束 ---
 
 # --- 辅助函数 ---
 async def process_uploaded_files(files: List[UploadFile]) -> List[pd.DataFrame]:
