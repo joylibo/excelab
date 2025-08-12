@@ -451,6 +451,7 @@
             color: var(--primary-color);
         }
         
+        /* 调试信息样式 - 默认隐藏 */
         .debug-info {
             position: fixed;
             bottom: 10px;
@@ -462,6 +463,37 @@
             font-size: 12px;
             max-width: 300px;
             z-index: 1000;
+            display: none; /* 默认隐藏 */
+        }
+        
+        .debug-info.visible {
+            display: block; /* 当需要显示时 */
+        }
+        
+        /* 开发者开关 */
+        .dev-toggle {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1001;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .dev-toggle i {
+            font-size: 20px;
+        }
+        
+        .hidden {
+            display: none !important;
         }
         
         @media (max-width: 768px) {
@@ -510,10 +542,6 @@
             
             .stat-item {
                 margin: 5px 0;
-            }
-            
-            .debug-info {
-                display: none;
             }
         }
     </style>
@@ -717,26 +745,83 @@
         </div>
     </div>
 
+    <!-- 调试信息区域 - 默认隐藏 -->
     <div class="debug-info" id="debug-info">
         <strong>调试信息:</strong>
         <div id="event-log"></div>
     </div>
+    
+    <!-- 开发者开关 - 仅开发人员可见 -->
+    <div class="dev-toggle" id="dev-toggle">
+        <i class="fas fa-bug"></i>
+    </div>
 
     <script>
-        // 调试信息记录
+        // 初始化调试状态
+        let debugEnabled = false;
+        
+        // 调试信息记录 - 增强版
         function logEvent(message) {
             const logElement = document.getElementById('event-log');
             const timestamp = new Date().toLocaleTimeString();
-            logElement.innerHTML = `<div>[${timestamp}] ${message}</div>` + logElement.innerHTML;
+            const eventDiv = document.createElement('div');
+            eventDiv.textContent = `[${timestamp}] ${message}`;
+            
+            if (logElement) {
+                // 添加新日志在顶部
+                logElement.insertBefore(eventDiv, logElement.firstChild);
+                
+                // 限制日志数量
+                if (logElement.children.length > 50) {
+                    logElement.removeChild(logElement.lastChild);
+                }
+            }
+            
+            // 可选：在控制台输出
+            if (debugEnabled) {
+                console.log(`[${timestamp}] ${message}`);
+            }
         }
-
-        // --- 定义基地址 (推荐方法：使用相对路径) ---
-        const API_BASE_URL = ''; // 空字符串表示相对路径，请求会发送到当前域名 (即后端服务的域名和端口)
-
+        
+        // 切换调试信息显示
+        function toggleDebug() {
+            const debugInfo = document.getElementById('debug-info');
+            const devToggle = document.getElementById('dev-toggle');
+            
+            debugEnabled = !debugEnabled;
+            
+            if (debugEnabled) {
+                debugInfo.classList.add('visible');
+                devToggle.innerHTML = '<i class="fas fa-times"></i>';
+                logEvent('调试模式已启用');
+            } else {
+                debugInfo.classList.remove('visible');
+                devToggle.innerHTML = '<i class="fas fa-bug"></i>';
+                logEvent('调试模式已禁用');
+            }
+            
+            // 保存用户偏好
+            localStorage.setItem('debugEnabled', debugEnabled ? 'true' : 'false');
+        }
+        
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
             logEvent('页面加载完成');
+            
+            // 检查本地存储中的调试偏好
+            const savedDebug = localStorage.getItem('debugEnabled');
+            if (savedDebug === 'true') {
+                debugEnabled = true;
+                document.getElementById('debug-info').classList.add('visible');
+                document.getElementById('dev-toggle').innerHTML = '<i class="fas fa-times"></i>';
+            }
+            
+            // 设置开发者开关事件
+            document.getElementById('dev-toggle').addEventListener('click', toggleDebug);
         });
+
+        // --- 定义基地址 (推荐方法：使用相对路径) ---
+        const API_BASE_URL = ''; // 空字符串表示相对路径，请求会发送到当前域名 (即后端服务的域名和端口)
 
         // 选项卡切换功能
         document.querySelectorAll('.tab').forEach(tab => {
@@ -1073,8 +1158,8 @@
             }
             return unsafe
                  .replace(/&/g, "&amp;")
-                 .replace(/</g, "<")
-                 .replace(/>/g, ">")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
                  .replace(/"/g, "&quot;")
                  .replace(/'/g, "&#039;");
         }
