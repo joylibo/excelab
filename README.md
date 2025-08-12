@@ -27,6 +27,11 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
+服务端运行时候用:
+```
+nohup uvicorn main:app --host 0.0.0.0 --port 8001 --workers 4 > uvicorn.log 2>&1 &
+```
+
 后端现在运行在 http://127.0.0.1:8000。
 
 
