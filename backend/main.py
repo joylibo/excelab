@@ -51,19 +51,23 @@ async def merge_files_api(
         for file in files:
             content = BytesIO(await file.read())
             filename = file.filename.lower()
+            
             if filename.endswith((".xlsx", ".xls")):
-                df = pd.read_excel(content)
+                # 读取所有 sheet
+                excel_file = pd.ExcelFile(content)
+                for sheet_name in excel_file.sheet_names:
+                    df = excel_file.parse(sheet_name)
+                    if not df.empty:
+                        dataframes.append(df)
+            
             elif filename.endswith(".csv"):
                 try:
                     df = pd.read_csv(content)
                 except UnicodeDecodeError:
                     content.seek(0)
                     df = pd.read_csv(content, encoding='gbk')
-            else:
-                continue
-
-            if not df.empty:
-                dataframes.append(df)
+                if not df.empty:
+                    dataframes.append(df)
 
         if not dataframes:
             raise HTTPException(status_code=400, detail="上传的文件均无法解析或内容为空。")
@@ -77,7 +81,28 @@ async def merge_files_api(
             merged_df = pd.concat([df[common_columns] for df in dataframes], ignore_index=True)
 
         output = BytesIO()
-        merged_df.to_excel(output, index=False, sheet_name="Merged_Data")
+        
+                # 优化后的导出逻辑 - 自动分割大数据集
+        max_rows_per_sheet = 1_000_000  # 每个工作表最大行数
+        
+        if len(merged_df) <= max_rows_per_sheet:
+            merged_df.to_excel(output, index=False, sheet_name="Merged_Data")
+        else:
+            with pd.ExcelWriter(output) as writer:
+                # 第一个工作表包含前1,000,000行
+                merged_df.iloc[:max_rows_per_sheet].to_excel(
+                    writer, index=False, sheet_name="Merged_Data_1"
+                )
+                
+                # 剩余数据分割到其他工作表
+                for i in range(1, (len(merged_df) // max_rows_per_sheet + 1)):
+                    start_idx = i * max_rows_per_sheet
+                    end_idx = (i + 1) * max_rows_per_sheet
+                    sheet_name = f"Merged_Data_{i+1}"
+                    merged_df.iloc[start_idx:end_idx].to_excel(
+                        writer, index=False, sheet_name=sheet_name
+                    )
+
         output.seek(0)
 
     except ValueError as e:
