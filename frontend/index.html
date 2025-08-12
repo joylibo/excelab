@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Excelab Pro - 表格工具箱</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --primary-color: #4361ee;
             --secondary-color: #3f37c9;
             --accent-color: #4895ef;
             --success-color: #4cc9f0;
+            --warning-color: #f72585;
             --light-color: #f8f9fa;
             --dark-color: #212529;
             --gray-color: #6c757d;
@@ -141,6 +143,7 @@
             margin-bottom: 25px;
             background-color: var(--light-color);
             position: relative;
+            cursor: pointer;
         }
         
         .file-upload-wrapper.drag-over {
@@ -197,18 +200,23 @@
         .file-name {
             flex: 1;
             font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .file-size {
             color: var(--gray-color);
             font-size: 0.9rem;
             margin-right: 15px;
+            flex-shrink: 0;
         }
         
         .file-remove {
-            color: #dc3545;
+            color: var(--warning-color);
             cursor: pointer;
             font-size: 1.2rem;
+            flex-shrink: 0;
         }
         
         .options {
@@ -313,9 +321,18 @@
         }
         
         .error-message {
-            color: #dc3545;
+            color: var(--warning-color);
             padding: 15px;
             background-color: rgba(220, 53, 69, 0.1);
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .success-message {
+            color: #28a745;
+            padding: 15px;
+            background-color: rgba(40, 167, 69, 0.1);
             border-radius: 8px;
             margin: 20px 0;
             display: none;
@@ -345,10 +362,11 @@
         table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 0.9rem;
         }
         
         th, td {
-            padding: 12px 15px;
+            padding: 10px 12px;
             text-align: left;
             border-bottom: 1px solid var(--border-color);
         }
@@ -356,6 +374,8 @@
         th {
             background-color: rgba(67, 97, 238, 0.1);
             font-weight: 600;
+            position: sticky;
+            top: 0;
         }
         
         tr:hover {
@@ -383,6 +403,65 @@
             color: var(--gray-color);
             font-size: 0.9rem;
             margin-top: 8px;
+        }
+        
+        .api-info {
+            background-color: rgba(67, 97, 238, 0.05);
+            border-left: 4px solid var(--primary-color);
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress {
+            height: 100%;
+            background-color: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        
+        .stat-item {
+            background: rgba(67, 97, 238, 0.1);
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-align: center;
+            flex: 1;
+            margin: 0 5px;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: var(--primary-color);
+        }
+        
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 1000;
         }
         
         @media (max-width: 768px) {
@@ -414,6 +493,28 @@
                 padding: 15px;
                 border-bottom: 1px solid var(--border-color);
             }
+            
+            .file-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .file-size, .file-remove {
+                margin-top: 5px;
+                margin-left: auto;
+            }
+            
+            .stats {
+                flex-direction: column;
+            }
+            
+            .stat-item {
+                margin: 5px 0;
+            }
+            
+            .debug-info {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -434,12 +535,12 @@
             <!-- 表格合并功能 -->
             <div id="merge-panel" class="function-panel active">
                 <div class="panel-title">
-                    <i>📊</i>
+                    <i class="fas fa-object-group"></i>
                     <h3>合并多个表格文件</h3>
                 </div>
                 
                 <div class="file-upload-wrapper" id="merge-upload-area">
-                    <div class="file-upload-icon">📥</div>
+                    <div class="file-upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
                     <span class="file-upload-label">点击或拖拽多个表格文件到此处</span>
                     <p class="info-text">支持 Excel (.xlsx, .xls) 和 CSV 文件格式</p>
                     <input type="file" class="file-input" id="merge-file-input" multiple accept=".xlsx, .xls, .csv">
@@ -466,64 +567,35 @@
                 <div id="merge-loader" class="loader">
                     <div class="spinner"></div>
                     <p>正在处理您的文件，请稍候...</p>
+                    <div class="progress-bar">
+                        <div class="progress" id="merge-progress"></div>
+                    </div>
                 </div>
                 
                 <div id="merge-error" class="error-message"></div>
+                <div id="merge-success" class="success-message"></div>
                 
                 <div class="preview-box" id="merge-preview">
                     <div class="preview-title">
-                        <i>👁️</i>
+                        <i class="fas fa-eye"></i>
                         <h3>合并结果预览</h3>
                     </div>
-                    <div class="preview-content">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>姓名</th>
-                                    <th>部门</th>
-                                    <th>工资</th>
-                                    <th>入职日期</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>001</td>
-                                    <td>张三</td>
-                                    <td>技术部</td>
-                                    <td>8500</td>
-                                    <td>2020-03-15</td>
-                                </tr>
-                                <tr>
-                                    <td>002</td>
-                                    <td>李四</td>
-                                    <td>市场部</td>
-                                    <td>9200</td>
-                                    <td>2019-11-22</td>
-                                </tr>
-                                <tr>
-                                    <td>003</td>
-                                    <td>王五</td>
-                                    <td>财务部</td>
-                                    <td>7800</td>
-                                    <td>2021-01-30</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="preview-content" id="merge-preview-content">
+                        <!-- 动态生成的预览内容 -->
                     </div>
-                    <a href="#" class="download-btn">下载合并结果</a>
+                    <a href="#" class="download-btn" id="merge-download">下载合并结果</a>
                 </div>
             </div>
             
             <!-- 表格拆分功能 -->
             <div id="split-panel" class="function-panel">
                 <div class="panel-title">
-                    <i>✂️</i>
+                    <i class="fas fa-cut"></i>
                     <h3>按列拆分表格文件</h3>
                 </div>
                 
                 <div class="file-upload-wrapper" id="split-upload-area">
-                    <div class="file-upload-icon">📥</div>
+                    <div class="file-upload-icon"><i class="fas fa-file-upload"></i></div>
                     <span class="file-upload-label">点击或拖拽表格文件到此处</span>
                     <p class="info-text">支持 Excel (.xlsx, .xls) 和 CSV 文件格式</p>
                     <input type="file" class="file-input" id="split-file-input" accept=".xlsx, .xls, .csv">
@@ -535,11 +607,8 @@
                     <h4>拆分选项</h4>
                     <div class="select-wrapper">
                         <label>选择拆分依据列：</label>
-                        <select id="split-column">
+                        <select id="split-column" disabled>
                             <option value="">请先上传文件</option>
-                            <option value="department">部门</option>
-                            <option value="location">地区</option>
-                            <option value="status">状态</option>
                         </select>
                     </div>
                 </div>
@@ -548,46 +617,36 @@
                 
                 <div id="split-loader" class="loader">
                     <div class="spinner"></div>
-                    <p>正在拆分您的文件，请稍候...</p>
+                    <p>正在处理您的文件，请稍候...</p>
+                    <div class="progress-bar">
+                        <div class="progress" id="split-progress"></div>
+                    </div>
                 </div>
                 
                 <div id="split-error" class="error-message"></div>
+                <div id="split-success" class="success-message"></div>
                 
                 <div class="preview-box" id="split-preview">
                     <div class="preview-title">
-                        <i>📦</i>
+                        <i class="fas fa-file-archive"></i>
                         <h3>拆分结果</h3>
                     </div>
-                    <div class="preview-content">
-                        <div class="file-item">
-                            <div class="file-name">技术部_员工数据.xlsx</div>
-                            <div class="file-size">45 KB</div>
-                            <div class="file-remove">⤬</div>
-                        </div>
-                        <div class="file-item">
-                            <div class="file-name">市场部_员工数据.xlsx</div>
-                            <div class="file-size">38 KB</div>
-                            <div class="file-remove">⤬</div>
-                        </div>
-                        <div class="file-item">
-                            <div class="file-name">财务部_员工数据.xlsx</div>
-                            <div class="file-size">32 KB</div>
-                            <div class="file-remove">⤬</div>
-                        </div>
+                    <div class="preview-content" id="split-preview-content">
+                        <!-- 动态生成的拆分结果 -->
                     </div>
-                    <a href="#" class="download-btn">下载全部文件 (ZIP)</a>
+                    <a href="#" class="download-btn" id="split-download">下载全部文件 (ZIP)</a>
                 </div>
             </div>
             
             <!-- 表格清理功能 -->
             <div id="clean-panel" class="function-panel">
                 <div class="panel-title">
-                    <i>🧹</i>
+                    <i class="fas fa-broom"></i>
                     <h3>清理表格数据</h3>
                 </div>
                 
                 <div class="file-upload-wrapper" id="clean-upload-area">
-                    <div class="file-upload-icon">📥</div>
+                    <div class="file-upload-icon"><i class="fas fa-file-import"></i></div>
                     <span class="file-upload-label">点击或拖拽表格文件到此处</span>
                     <p class="info-text">支持 Excel (.xlsx, .xls) 和 CSV 文件格式</p>
                     <input type="file" class="file-input" id="clean-file-input" accept=".xlsx, .xls, .csv">
@@ -618,44 +677,64 @@
                 <div id="clean-loader" class="loader">
                     <div class="spinner"></div>
                     <p>正在清理您的文件，请稍候...</p>
+                    <div class="progress-bar">
+                        <div class="progress" id="clean-progress"></div>
+                    </div>
                 </div>
                 
                 <div id="clean-error" class="error-message"></div>
+                <div id="clean-success" class="success-message"></div>
                 
                 <div class="preview-box" id="clean-preview">
                     <div class="preview-title">
-                        <i>✨</i>
-                        <h3>清理结果预览</h3>
+                        <i class="fas fa-check-circle"></i>
+                        <h3>清理结果</h3>
                     </div>
-                    <div class="preview-content">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>原始行数</th>
-                                    <th>清理后行数</th>
-                                    <th>原始列数</th>
-                                    <th>清理后列数</th>
-                                    <th>清理项</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>156</td>
-                                    <td>142</td>
-                                    <td>12</td>
-                                    <td>10</td>
-                                    <td>删除空行、空列</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div>原始行数</div>
+                            <div class="stat-value" id="original-rows">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div>清理后行数</div>
+                            <div class="stat-value" id="cleaned-rows">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div>原始列数</div>
+                            <div class="stat-value" id="original-cols">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div>清理后列数</div>
+                            <div class="stat-value" id="cleaned-cols">0</div>
+                        </div>
                     </div>
-                    <a href="#" class="download-btn">下载清理后的文件</a>
+                    <div class="preview-content" id="clean-preview-content">
+                        <!-- 动态生成的清理预览 -->
+                    </div>
+                    <a href="#" class="download-btn" id="clean-download">下载清理后的文件</a>
                 </div>
             </div>
         </div>
     </div>
 
+    <div class="debug-info" id="debug-info">
+        <strong>调试信息:</strong>
+        <div id="event-log"></div>
+    </div>
+
     <script>
+        // 调试信息记录
+        function logEvent(message) {
+            const logElement = document.getElementById('event-log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML = `<div>[${timestamp}] ${message}</div>` + logElement.innerHTML;
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            logEvent('页面加载完成');
+        });
+
         // 选项卡切换功能
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -669,6 +748,8 @@
                     panel.classList.remove('active');
                 });
                 document.getElementById(`${tabId}-panel`).classList.add('active');
+                
+                logEvent(`切换到 ${tab.textContent} 功能`);
             });
         });
         
@@ -681,27 +762,26 @@
             area.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 area.classList.add('drag-over');
+                logEvent('文件拖拽进入上传区域');
             });
             
             area.addEventListener('dragleave', () => {
                 area.classList.remove('drag-over');
+                logEvent('文件拖拽离开上传区域');
             });
             
             area.addEventListener('drop', (e) => {
                 e.preventDefault();
                 area.classList.remove('drag-over');
                 input.files = e.dataTransfer.files;
+                logEvent(`拖拽添加了 ${e.dataTransfer.files.length} 个文件`);
                 handleFiles(input.files, input.id);
-            });
-            
-            // 点击打开文件选择器
-            area.addEventListener('click', () => {
-                input.click();
             });
             
             // 文件选择变化
-            input.addEventListener('change', () => {
-                handleFiles(input.files, input.id);
+            input.addEventListener('change', (e) => {
+                logEvent(`选择了 ${e.target.files.length} 个文件`);
+                handleFiles(e.target.files, input.id);
             });
         });
         
@@ -721,7 +801,7 @@
                     fileItem.innerHTML = `
                         <div class="file-name">${file.name}</div>
                         <div class="file-size">${formatFileSize(file.size)}</div>
-                        <div class="file-remove" data-index="${i}">⤬</div>
+                        <div class="file-remove" data-index="${i}"><i class="fas fa-times"></i></div>
                     `;
                     fileList.appendChild(fileItem);
                 }
@@ -731,12 +811,22 @@
                 // 为删除按钮添加事件
                 document.querySelectorAll(`#${prefix}-file-list .file-remove`).forEach(btn => {
                     btn.addEventListener('click', (e) => {
-                        const index = parseInt(e.target.getAttribute('data-index'));
+                        const index = parseInt(e.target.closest('.file-remove').getAttribute('data-index'));
+                        logEvent(`移除文件: ${files[index].name}`);
                         removeFile(index, prefix);
                     });
                 });
+                
+                // 如果是拆分功能，获取列名
+                if (prefix === 'split') {
+                    getColumnsForSplit(files[0]);
+                }
             } else {
                 submitButton.disabled = true;
+                if (prefix === 'split') {
+                    document.getElementById('split-column').disabled = true;
+                    document.getElementById('split-column').innerHTML = '<option value="">请先上传文件</option>';
+                }
             }
         }
         
@@ -767,42 +857,522 @@
         // 选项标签交互
         document.querySelectorAll('.option-label').forEach(label => {
             const input = label.querySelector('input[type="radio"], input[type="checkbox"]');
-            
-            label.addEventListener('click', () => {
-                if (input.type === 'radio') {
-                    document.querySelectorAll(`.option-group input[name="${input.name}"]`).forEach(radio => {
-                        radio.parentElement.classList.remove('selected');
-                    });
+            label.addEventListener('click', (event) => { // 接收 event 参数
+                if (input) {
+                    if (input.type === 'radio') {
+                        document.querySelectorAll(`.option-group input[name="${input.name}"]`).forEach(radio => {
+                            radio.parentElement.classList.remove('selected');
+                        });
+                        input.checked = true;
+                        label.classList.add('selected');
+                        logEvent(`选项变更: ${input.value} - ${input.checked}`);
+                    } else if (input.type === 'checkbox') {
+                        // 关键修改：只有当点击的不是 input 本身时，才手动切换状态
+                        // 这避免了与用户直接点击 checkbox 时浏览器默认行为的冲突
+                        if (event.target !== input) {
+                            input.checked = !input.checked;
+                        }
+                        // 更新 UI 状态以匹配 input.checked
+                        label.classList.toggle('selected', input.checked);
+                        logEvent(`选项变更: ${input.value} - ${input.checked}`);
+                    }
                 }
-                
-                if (input.type === 'checkbox') {
-                    input.checked = !input.checked;
-                } else {
-                    input.checked = true;
-                }
-                
-                label.classList.toggle('selected', input.checked);
             });
         });
         
-        // 模拟提交按钮点击
-        document.querySelectorAll('.submit-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.preventDefault();
-                const prefix = button.id.split('-')[0];
-                const loader = document.getElementById(`${prefix}-loader`);
-                const preview = document.getElementById(`${prefix}-preview`);
-                
-                // 显示加载器
-                loader.style.display = 'block';
-                
-                // 模拟处理时间
-                setTimeout(() => {
-                    loader.style.display = 'none';
-                    preview.style.display = 'block';
-                }, 2000);
-            });
+        // 获取拆分文件的列名
+        async function getColumnsForSplit(file) {
+            const select = document.getElementById('split-column');
+            const errorElement = document.getElementById('split-error');
+            select.disabled = true;
+            select.innerHTML = '<option value="">正在获取列名...</option>';
+            logEvent('开始获取列名');
+            try {
+                // --- 调用真实的后端 API ---
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('http://127.0.0.1:8000/api/split/columns', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                     const errorData = await response.json().catch(() => ({}));
+                     throw new Error(errorData.detail || `获取列名失败 (${response.status})`);
+                }
+
+                const data = await response.json();
+                const columns = data.columns;
+                // --- 调用结束 ---
+
+                // const columns = ['部门', '地区', '职位', '状态', '级别']; // 删除模拟数据
+                select.innerHTML = '<option value="">请选择拆分依据列</option>';
+                columns.forEach(col => {
+                    const option = document.createElement('option');
+                    option.value = col;
+                    option.textContent = col;
+                    select.appendChild(option);
+                });
+                select.disabled = false;
+                logEvent(`获取到 ${columns.length} 个列名`);
+            } catch (error) {
+                select.innerHTML = '<option value="">获取列名失败</option>';
+                showError(errorElement, error.message);
+                logEvent('获取列名失败: ' + error.message);
+            }
+        }
+        
+        // 合并功能提交
+        document.getElementById('merge-button').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const prefix = 'merge';
+            const fileInput = document.getElementById(`${prefix}-file-input`);
+            const loader = document.getElementById(`${prefix}-loader`);
+            const progress = document.getElementById(`${prefix}-progress`);
+            const errorElement = document.getElementById(`${prefix}-error`);
+            const successElement = document.getElementById(`${prefix}-success`);
+            const preview = document.getElementById(`${prefix}-preview`);
+            const previewContent = document.getElementById('merge-preview-content');
+            const downloadBtn = document.getElementById('merge-download');
+
+            // 获取合并模式
+            const mergeMode = document.querySelector('input[name="merge_mode"]:checked').value;
+
+            if (fileInput.files.length === 0) {
+                showError(errorElement, '请先上传文件');
+                return;
+            }
+
+            // 隐藏之前的结果和错误
+            preview.style.display = 'none';
+            errorElement.style.display = 'none';
+            successElement.style.display = 'none';
+
+            // 显示加载器
+            loader.style.display = 'block';
+            progress.style.width = '0%'; // 重置进度条
+            logEvent('开始请求合并预览...');
+
+            // 创建 FormData 对象
+            const formData = new FormData();
+            for (let i = 0; i < fileInput.files.length; i++) {
+                formData.append('files', fileInput.files[i]);
+            }
+            formData.append('merge_mode', mergeMode);
+            // 可以添加 preview_rows 参数 if needed
+            // formData.append('preview_rows', 20);
+
+            try {
+                // Step 1: 请求预览
+                logEvent('正在上传文件并请求预览...');
+                simulateProgress(progress, 1500); // 模拟进度，实际应由后端推送
+                const previewResponse = await fetch('http://127.0.0.1:8000/api/merge/preview', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!previewResponse.ok) {
+                    const errorData = await previewResponse.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `预览请求失败 (${previewResponse.status})`);
+                }
+
+                const previewData = await previewResponse.json();
+                logEvent('预览数据获取成功');
+
+                // Step 2: 构建预览表格
+                if (previewData.data && previewData.data.length > 0 && previewData.columns) {
+                    let tableHTML = '<table><thead><tr>';
+                    previewData.columns.forEach(col => {
+                        tableHTML += `<th>${escapeHtml(col)}</th>`; // 防止XSS
+                    });
+                    tableHTML += '</tr></thead><tbody>';
+                    previewData.data.forEach(row => {
+                        tableHTML += '<tr>';
+                        previewData.columns.forEach(col => {
+                            // 使用空字符串作为默认值，对应后端的 fillna("")
+                            const cellValue = row[col] !== undefined && row[col] !== null ? row[col] : "";
+                            tableHTML += `<td>${escapeHtml(String(cellValue))}</td>`;
+                        });
+                        tableHTML += '</tr>';
+                    });
+                    tableHTML += '</tbody></table>';
+                    previewContent.innerHTML = tableHTML;
+                } else {
+                    previewContent.innerHTML = '<p>合并结果为空或无法生成预览。</p>';
+                }
+
+                // Step 3: 显示成功消息和预览
+                loader.style.display = 'none';
+                successElement.textContent = `成功合并了 ${fileInput.files.length} 个文件！预览已生成。`;
+                successElement.style.display = 'block';
+                preview.style.display = 'block';
+
+                // Step 4: 更新下载按钮的行为
+                downloadBtn.onclick = async function(event) {
+                    event.preventDefault(); // 阻止默认下载行为
+                    logEvent('用户点击下载按钮，开始下载合并文件...');
+                    loader.style.display = 'block';
+                    progress.style.width = '0%';
+                    errorElement.style.display = 'none';
+                    successElement.style.display = 'none';
+                    simulateProgress(progress, 2000); // 模拟下载进度
+
+                    try {
+                        const downloadResponse = await fetch('http://127.0.0.1:8000/api/merge', {
+                            method: 'POST',
+                            body: formData, // 复用之前的 formData
+                        });
+
+                        if (!downloadResponse.ok) {
+                            const errorData = await downloadResponse.json().catch(() => ({}));
+                            throw new Error(errorData.detail || `下载请求失败 (${downloadResponse.status})`);
+                        }
+
+                        // 获取 Blob 数据
+                        const blob = await downloadResponse.blob();
+                        const url = window.URL.createObjectURL(blob);
+
+                        // 创建临时链接并触发下载
+                        const tempLink = document.createElement('a');
+                        tempLink.href = url;
+                        tempLink.download = 'merged_pro.xlsx'; // 后端设置的文件名可能被覆盖，这里再设置一次
+                        document.body.appendChild(tempLink);
+                        tempLink.click();
+
+                        // 清理
+                        document.body.removeChild(tempLink);
+                        window.URL.revokeObjectURL(url);
+
+                        loader.style.display = 'none';
+                        successElement.textContent = '文件下载成功！';
+                        successElement.style.display = 'block';
+                        logEvent('合并文件下载成功');
+
+                    } catch (downloadError) {
+                         loader.style.display = 'none';
+                         showError(errorElement, `下载失败: ${downloadError.message}`);
+                         logEvent('下载失败: ' + downloadError.message);
+                    }
+                };
+
+            } catch (error) {
+                loader.style.display = 'none';
+                showError(errorElement, error.message);
+                logEvent('合并预览请求失败: ' + error.message);
+            }
         });
+
+        // --- 辅助函数：防止XSS ---
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') {
+                return String(unsafe);
+            }
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "<")
+                 .replace(/>/g, ">")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+        
+        
+        // 拆分功能提交
+        document.getElementById('split-button').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const prefix = 'split';
+            const fileInput = document.getElementById(`${prefix}-file-input`);
+            const loader = document.getElementById(`${prefix}-loader`);
+            const progress = document.getElementById(`${prefix}-progress`);
+            const errorElement = document.getElementById(`${prefix}-error`);
+            const successElement = document.getElementById(`${prefix}-success`);
+            const preview = document.getElementById(`${prefix}-preview`);
+            const previewContent = document.getElementById('split-preview-content');
+            const downloadBtn = document.getElementById('split-download');
+
+            // 获取拆分列
+            const splitColumn = document.getElementById('split-column').value;
+            if (fileInput.files.length === 0) {
+                showError(errorElement, '请先上传文件');
+                return;
+            }
+            if (!splitColumn) {
+                showError(errorElement, '请选择拆分列');
+                return;
+            }
+
+            // 隐藏之前的结果和错误
+            preview.style.display = 'none';
+            errorElement.style.display = 'none';
+            successElement.style.display = 'none';
+
+            // 显示加载器
+            loader.style.display = 'block';
+            progress.style.width = '0%'; // 重置进度条
+            logEvent(`开始按列拆分: ${splitColumn}`);
+
+            try {
+                 // 创建 FormData 对象
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]); // 拆分只处理第一个文件
+                formData.append('split_column', splitColumn);
+
+                // Step 1: 请求拆分并下载 ZIP
+                logEvent('正在上传文件并请求拆分...');
+                simulateProgress(progress, 2000); // 模拟进度
+
+                const splitResponse = await fetch('http://127.0.0.1:8000/api/split', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!splitResponse.ok) {
+                    const errorData = await splitResponse.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `拆分请求失败 (${splitResponse.status})`);
+                }
+
+                // Step 2: 获取 ZIP Blob
+                const blob = await splitResponse.blob();
+                logEvent('拆分完成，ZIP文件已生成');
+
+                // Step 3: 为了预览，我们需要再次获取列名或使用其他方式。
+                // 简单起见，我们在这里模拟预览信息。
+                // 更好的方式可能是后端在拆分时也返回一些元数据。
+                // 这里我们模拟显示原始文件名和拆分列
+                previewContent.innerHTML = `
+                    <p><strong>原始文件:</strong> ${escapeHtml(fileInput.files[0].name)}</p>
+                    <p><strong>拆分依据列:</strong> ${escapeHtml(splitColumn)}</p>
+                    <p><strong>状态:</strong> 拆分已完成，准备下载。</p>
+                `;
+
+                // Step 4: 设置下载按钮行为
+                // 我们需要创建一个临时的 object URL 来触发下载
+                const url = window.URL.createObjectURL(blob);
+
+                downloadBtn.onclick = function(event) {
+                    event.preventDefault(); // 阻止默认链接行为
+                    logEvent('用户点击下载拆分文件按钮');
+
+                    // 创建临时链接并触发下载
+                    const tempLink = document.createElement('a');
+                    tempLink.href = url;
+                    tempLink.download = 'split_files.zip'; // 后端设置的文件名可能被覆盖，这里再设置一次
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+
+                    // 清理
+                    document.body.removeChild(tempLink);
+                    // 注意：通常我们会 revokeObjectURL，但如果用户可能多次点击下载，
+                    // 可以稍后清理，或者在每次点击时重新创建URL。
+                    // window.URL.revokeObjectURL(url);
+                    logEvent('拆分文件 ZIP 下载已触发');
+                };
+
+                // Step 5: 显示成功消息和预览
+                loader.style.display = 'none';
+                successElement.textContent = `拆分完成！请点下方按钮下载 ZIP 文件。`;
+                successElement.style.display = 'block';
+                preview.style.display = 'block';
+
+            } catch (error) {
+                loader.style.display = 'none';
+                showError(errorElement, error.message);
+                logEvent('拆分失败: ' + error.message);
+            }
+        });
+        // --- 修改结束 ---
+        
+        // 清理功能提交
+        document.getElementById('clean-button').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const prefix = 'clean';
+            const fileInput = document.getElementById(`${prefix}-file-input`);
+            const loader = document.getElementById(`${prefix}-loader`);
+            const progress = document.getElementById(`${prefix}-progress`);
+            const errorElement = document.getElementById(`${prefix}-error`);
+            const successElement = document.getElementById(`${prefix}-success`);
+            const preview = document.getElementById(`${prefix}-preview`);
+            const previewContent = document.getElementById('clean-preview-content');
+            const downloadBtn = document.getElementById('clean-download');
+
+            // 获取清理选项
+            const removeEmptyRows = document.querySelector('input[name="clean_options"][value="remove_empty_rows"]').checked;
+            const removeEmptyCols = document.querySelector('input[name="clean_options"][value="remove_empty_cols"]').checked;
+            const trimSpaces = document.querySelector('input[name="clean_options"][value="trim_spaces"]').checked;
+
+            if (fileInput.files.length === 0) {
+                showError(errorElement, '请先上传文件');
+                return;
+            }
+
+            // 隐藏之前的结果和错误
+            preview.style.display = 'none';
+            errorElement.style.display = 'none';
+            successElement.style.display = 'none';
+
+            // 显示加载器
+            loader.style.display = 'block';
+            progress.style.width = '0%'; // 重置进度条
+            logEvent('开始清理表格...');
+
+            try {
+                 // 创建 FormData 对象
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]); // 清理只处理第一个文件
+                formData.append('remove_empty_rows', removeEmptyRows);
+                formData.append('remove_empty_cols', removeEmptyCols);
+                formData.append('trim_spaces', trimSpaces);
+                // 可以添加 preview_rows 参数 if needed
+                // formData.append('preview_rows', 10);
+
+                // Step 1: 请求预览
+                logEvent('正在上传文件并请求清理预览...');
+                simulateProgress(progress, 1500); // 模拟进度
+
+                const previewResponse = await fetch('http://127.0.0.1:8000/api/clean/preview', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!previewResponse.ok) {
+                    const errorData = await previewResponse.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `预览请求失败 (${previewResponse.status})`);
+                }
+
+                const previewData = await previewResponse.json();
+                logEvent('清理预览数据获取成功');
+
+                // Step 2: 更新统计信息
+                document.getElementById('original-rows').textContent = previewData.original_rows;
+                document.getElementById('cleaned-rows').textContent = previewData.cleaned_rows;
+                document.getElementById('original-cols').textContent = previewData.original_cols;
+                document.getElementById('cleaned-cols').textContent = previewData.cleaned_cols;
+
+                // Step 3: 构建预览表格 (清理后的数据)
+                let tableHTML = '';
+                if (previewData.preview_data && previewData.preview_data.length > 0 && previewData.preview_columns) {
+                    tableHTML = '<table><thead><tr>';
+                    previewData.preview_columns.forEach(col => {
+                        tableHTML += `<th>${escapeHtml(col)}</th>`;
+                    });
+                    tableHTML += '</tr></thead><tbody>';
+                    previewData.preview_data.forEach(row => {
+                        tableHTML += '<tr>';
+                        previewData.preview_columns.forEach(col => {
+                            const cellValue = row[col] !== undefined && row[col] !== null ? row[col] : "";
+                            tableHTML += `<td>${escapeHtml(String(cellValue))}</td>`;
+                        });
+                        tableHTML += '</tr>';
+                    });
+                    tableHTML += '</tbody></table>';
+                } else {
+                     tableHTML = '<p>清理后数据为空或无法生成预览。</p>';
+                }
+                
+                // Step 4: 显示清理信息
+                const actionsText = previewData.actions && previewData.actions.length > 0 ? 
+                    previewData.actions.map(a => {
+                        switch(a) {
+                            case 'remove_empty_rows': return '删除空行';
+                            case 'remove_empty_cols': return '删除空列';
+                            case 'trim_spaces': return '清除空格';
+                            default: return a;
+                        }
+                    }).join('、') : '无';
+
+                previewContent.innerHTML = `
+                    <p><strong>执行操作:</strong> ${actionsText}</p>
+                    <p><strong>文件信息:</strong> ${escapeHtml(fileInput.files[0].name)}</p>
+                    <p><strong>清理时间:</strong> ${new Date().toLocaleString()}</p>
+                    <hr style="margin: 10px 0;">
+                    <h4 style="margin-top: 10px;">数据预览 (清理后):</h4>
+                    ${tableHTML}
+                `;
+
+                // Step 5: 显示成功消息和预览
+                loader.style.display = 'none';
+                const rowsRemoved = previewData.original_rows - previewData.cleaned_rows;
+                const colsRemoved = previewData.original_cols - previewData.cleaned_cols;
+                successElement.textContent = `清理完成！移除了 ${rowsRemoved} 个空行和 ${colsRemoved} 个空列。`;
+                successElement.style.display = 'block';
+                preview.style.display = 'block';
+
+                // Step 6: 更新下载按钮的行为
+                downloadBtn.onclick = async function(event) {
+                    event.preventDefault(); // 阻止默认链接行为
+                    logEvent('用户点击下载清理文件按钮');
+                    loader.style.display = 'block';
+                    progress.style.width = '0%';
+                    errorElement.style.display = 'none';
+                    successElement.style.display = 'none';
+                    simulateProgress(progress, 2000); // 模拟下载进度
+
+                    try {
+                        const downloadResponse = await fetch('http://127.0.0.1:8000/api/clean', {
+                            method: 'POST',
+                            body: formData, // 复用之前的 formData
+                        });
+
+                        if (!downloadResponse.ok) {
+                            const errorData = await downloadResponse.json().catch(() => ({}));
+                            throw new Error(errorData.detail || `下载请求失败 (${downloadResponse.status})`);
+                        }
+
+                        // 获取 Blob 数据
+                        const blob = await downloadResponse.blob();
+                        const url = window.URL.createObjectURL(blob);
+
+                        // 创建临时链接并触发下载
+                        const tempLink = document.createElement('a');
+                        tempLink.href = url;
+                        tempLink.download = 'cleaned_data.xlsx'; // 后端设置的文件名可能被覆盖，这里再设置一次
+                        document.body.appendChild(tempLink);
+                        tempLink.click();
+
+                        // 清理
+                        document.body.removeChild(tempLink);
+                        window.URL.revokeObjectURL(url);
+
+                        loader.style.display = 'none';
+                        successElement.textContent = '清理后的文件下载成功！';
+                        successElement.style.display = 'block';
+                        logEvent('清理文件下载成功');
+
+                    } catch (downloadError) {
+                         loader.style.display = 'none';
+                         showError(errorElement, `下载失败: ${downloadError.message}`);
+                         logEvent('下载失败: ' + downloadError.message);
+                    }
+                };
+
+            } catch (error) {
+                loader.style.display = 'none';
+                showError(errorElement, error.message);
+                logEvent('清理失败: ' + error.message);
+            }
+        });
+        
+        // 显示错误消息
+        function showError(element, message) {
+            element.textContent = message;
+            element.style.display = 'block';
+        }
+        
+        // 模拟进度条
+        function simulateProgress(progressElement, duration = 3000) {
+            let width = 0;
+            const interval = 30;
+            const increment = 100 / (duration / interval);
+            
+            const timer = setInterval(() => {
+                width += increment;
+                progressElement.style.width = `${Math.min(width, 100)}%`;
+                
+                if (width >= 100) {
+                    clearInterval(timer);
+                }
+            }, interval);
+        }
     </script>
 </body>
 </html>
