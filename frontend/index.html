@@ -3,33 +3,806 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excelab Pro</title>
-    <link rel="stylesheet" href="/css/style.css"> 
+    <title>Excelab Pro - 表格工具箱</title>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --success-color: #4cc9f0;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+            --gray-color: #6c757d;
+            --border-color: #dee2e6;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--dark-color);
+            line-height: 1.6;
+        }
+        
+        .container {
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 900px;
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(120deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .tabs {
+            display: flex;
+            background-color: white;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 18px 20px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--gray-color);
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+            color: var(--primary-color);
+        }
+        
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+            background-color: rgba(67, 97, 238, 0.08);
+        }
+        
+        .tab-content {
+            padding: 30px 40px;
+        }
+        
+        .function-panel {
+            display: none;
+        }
+        
+        .function-panel.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .panel-title {
+            font-size: 1.5rem;
+            margin-bottom: 25px;
+            color: var(--dark-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .panel-title i {
+            margin-right: 12px;
+            background: var(--primary-color);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        
+        .file-upload-wrapper {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            margin-bottom: 25px;
+            background-color: var(--light-color);
+            position: relative;
+        }
+        
+        .file-upload-wrapper.drag-over {
+            border-color: var(--primary-color);
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .file-upload-label {
+            font-size: 1.2rem;
+            color: var(--gray-color);
+            display: block;
+            margin-bottom: 20px;
+        }
+        
+        .file-upload-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        
+        .file-input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .file-list {
+            margin: 20px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background-color: var(--light-color);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        
+        .file-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .file-name {
+            flex: 1;
+            font-weight: 500;
+        }
+        
+        .file-size {
+            color: var(--gray-color);
+            font-size: 0.9rem;
+            margin-right: 15px;
+        }
+        
+        .file-remove {
+            color: #dc3545;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        .options {
+            background-color: var(--light-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        
+        .options h4 {
+            margin-bottom: 15px;
+            color: var(--dark-color);
+            font-size: 1.1rem;
+        }
+        
+        .option-group {
+            margin-bottom: 15px;
+        }
+        
+        .option-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .option-label {
+            display: block;
+            padding: 12px 15px;
+            background-color: white;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+        
+        .option-label:hover {
+            border-color: var(--primary-color);
+        }
+        
+        .option-label.selected {
+            border-color: var(--primary-color);
+            background-color: rgba(67, 97, 238, 0.08);
+        }
+        
+        .select-wrapper {
+            margin: 15px 0;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            background-color: white;
+        }
+        
+        .submit-btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(120deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        .submit-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        
+        .submit-btn:disabled {
+            background: var(--gray-color);
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loader {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(67, 97, 238, 0.2);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            color: #dc3545;
+            padding: 15px;
+            background-color: rgba(220, 53, 69, 0.1);
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .preview-box {
+            background-color: var(--light-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 25px;
+            display: none;
+        }
+        
+        .preview-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: var(--dark-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .preview-content {
+            max-height: 300px;
+            overflow: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            background-color: rgba(67, 97, 238, 0.1);
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .download-btn {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: #28a745;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .download-btn:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .info-text {
+            color: var(--gray-color);
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                border-radius: 12px;
+            }
+            
+            header {
+                padding: 20px;
+            }
+            
+            header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .tab-content {
+                padding: 20px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                padding: 15px;
+                border-bottom: 1px solid var(--border-color);
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <h2>表格合并</h2>
-        <form id="upload-form">
-            <div class="file-upload-wrapper">
-                <span class="file-upload-label">点击或拖拽文件到此处</span>
-                <input type="file" name="files" id="file-input" multiple required>
+        <header>
+            <h1>Excelab Pro</h1>
+            <p>强大的表格处理工具，支持合并、拆分和清理表格数据</p>
+        </header>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="merge">表格合并</div>
+            <div class="tab" data-tab="split">表格拆分</div>
+            <div class="tab" data-tab="clean">表格清理</div>
+        </div>
+        
+        <div class="tab-content">
+            <!-- 表格合并功能 -->
+            <div id="merge-panel" class="function-panel active">
+                <div class="panel-title">
+                    <i>📊</i>
+                    <h3>合并多个表格文件</h3>
+                </div>
+                
+                <div class="file-upload-wrapper" id="merge-upload-area">
+                    <div class="file-upload-icon">📥</div>
+                    <span class="file-upload-label">点击或拖拽多个表格文件到此处</span>
+                    <p class="info-text">支持 Excel (.xlsx, .xls) 和 CSV 文件格式</p>
+                    <input type="file" class="file-input" id="merge-file-input" multiple accept=".xlsx, .xls, .csv">
+                </div>
+                
+                <div id="merge-file-list" class="file-list"></div>
+                
+                <div class="options">
+                    <h4>合并选项</h4>
+                    <div class="option-group">
+                        <div class="option-label selected">
+                            <input type="radio" name="merge_mode" value="outer" checked>
+                            保留所有字段 (缺失处填空)
+                        </div>
+                        <div class="option-label">
+                            <input type="radio" name="merge_mode" value="inner">
+                            仅保留共同字段
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="submit-btn" id="merge-button" disabled>合并表格</button>
+                
+                <div id="merge-loader" class="loader">
+                    <div class="spinner"></div>
+                    <p>正在处理您的文件，请稍候...</p>
+                </div>
+                
+                <div id="merge-error" class="error-message"></div>
+                
+                <div class="preview-box" id="merge-preview">
+                    <div class="preview-title">
+                        <i>👁️</i>
+                        <h3>合并结果预览</h3>
+                    </div>
+                    <div class="preview-content">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>姓名</th>
+                                    <th>部门</th>
+                                    <th>工资</th>
+                                    <th>入职日期</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>001</td>
+                                    <td>张三</td>
+                                    <td>技术部</td>
+                                    <td>8500</td>
+                                    <td>2020-03-15</td>
+                                </tr>
+                                <tr>
+                                    <td>002</td>
+                                    <td>李四</td>
+                                    <td>市场部</td>
+                                    <td>9200</td>
+                                    <td>2019-11-22</td>
+                                </tr>
+                                <tr>
+                                    <td>003</td>
+                                    <td>王五</td>
+                                    <td>财务部</td>
+                                    <td>7800</td>
+                                    <td>2021-01-30</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <a href="#" class="download-btn">下载合并结果</a>
+                </div>
             </div>
-            <div id="file-list"></div>
-            <div class="options">
-                <h4>合并模式</h4>
-                <label>
-                    <input type="radio" name="merge_mode" value="outer" checked>
-                    保留所有字段 (缺失处填空)
-                </label>
-                <label>
-                    <input type="radio" name="merge_mode" value="inner">
-                    仅保留共同字段
-                </label>
+            
+            <!-- 表格拆分功能 -->
+            <div id="split-panel" class="function-panel">
+                <div class="panel-title">
+                    <i>✂️</i>
+                    <h3>按列拆分表格文件</h3>
+                </div>
+                
+                <div class="file-upload-wrapper" id="split-upload-area">
+                    <div class="file-upload-icon">📥</div>
+                    <span class="file-upload-label">点击或拖拽表格文件到此处</span>
+                    <p class="info-text">支持 Excel (.xlsx, .xls) 和 CSV 文件格式</p>
+                    <input type="file" class="file-input" id="split-file-input" accept=".xlsx, .xls, .csv">
+                </div>
+                
+                <div id="split-file-list" class="file-list"></div>
+                
+                <div class="options">
+                    <h4>拆分选项</h4>
+                    <div class="select-wrapper">
+                        <label>选择拆分依据列：</label>
+                        <select id="split-column">
+                            <option value="">请先上传文件</option>
+                            <option value="department">部门</option>
+                            <option value="location">地区</option>
+                            <option value="status">状态</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button class="submit-btn" id="split-button" disabled>拆分表格</button>
+                
+                <div id="split-loader" class="loader">
+                    <div class="spinner"></div>
+                    <p>正在拆分您的文件，请稍候...</p>
+                </div>
+                
+                <div id="split-error" class="error-message"></div>
+                
+                <div class="preview-box" id="split-preview">
+                    <div class="preview-title">
+                        <i>📦</i>
+                        <h3>拆分结果</h3>
+                    </div>
+                    <div class="preview-content">
+                        <div class="file-item">
+                            <div class="file-name">技术部_员工数据.xlsx</div>
+                            <div class="file-size">45 KB</div>
+                            <div class="file-remove">⤬</div>
+                        </div>
+                        <div class="file-item">
+                            <div class="file-name">市场部_员工数据.xlsx</div>
+                            <div class="file-size">38 KB</div>
+                            <div class="file-remove">⤬</div>
+                        </div>
+                        <div class="file-item">
+                            <div class="file-name">财务部_员工数据.xlsx</div>
+                            <div class="file-size">32 KB</div>
+                            <div class="file-remove">⤬</div>
+                        </div>
+                    </div>
+                    <a href="#" class="download-btn">下载全部文件 (ZIP)</a>
+                </div>
             </div>
-            <button type="submit" class="submit-btn" id="submit-button" disabled>上传并合并</button>
-            <div id="loader">正在处理，请稍候...</div>
-            <div id="error-message"></div>
-        </form>
+            
+            <!-- 表格清理功能 -->
+            <div id="clean-panel" class="function-panel">
+                <div class="panel-title">
+                    <i>🧹</i>
+                    <h3>清理表格数据</h3>
+                </div>
+                
+                <div class="file-upload-wrapper" id="clean-upload-area">
+                    <div class="file-upload-icon">📥</div>
+                    <span class="file-upload-label">点击或拖拽表格文件到此处</span>
+                    <p class="info-text">支持 Excel (.xlsx, .xls) 和 CSV 文件格式</p>
+                    <input type="file" class="file-input" id="clean-file-input" accept=".xlsx, .xls, .csv">
+                </div>
+                
+                <div id="clean-file-list" class="file-list"></div>
+                
+                <div class="options">
+                    <h4>清理选项</h4>
+                    <div class="option-group">
+                        <div class="option-label selected">
+                            <input type="checkbox" name="clean_options" value="remove_empty_rows" checked>
+                            删除空值行
+                        </div>
+                        <div class="option-label selected">
+                            <input type="checkbox" name="clean_options" value="remove_empty_cols" checked>
+                            删除空值列
+                        </div>
+                        <div class="option-label">
+                            <input type="checkbox" name="clean_options" value="trim_spaces">
+                            清除多余空格
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="submit-btn" id="clean-button" disabled>清理表格</button>
+                
+                <div id="clean-loader" class="loader">
+                    <div class="spinner"></div>
+                    <p>正在清理您的文件，请稍候...</p>
+                </div>
+                
+                <div id="clean-error" class="error-message"></div>
+                
+                <div class="preview-box" id="clean-preview">
+                    <div class="preview-title">
+                        <i>✨</i>
+                        <h3>清理结果预览</h3>
+                    </div>
+                    <div class="preview-content">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>原始行数</th>
+                                    <th>清理后行数</th>
+                                    <th>原始列数</th>
+                                    <th>清理后列数</th>
+                                    <th>清理项</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>156</td>
+                                    <td>142</td>
+                                    <td>12</td>
+                                    <td>10</td>
+                                    <td>删除空行、空列</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <a href="#" class="download-btn">下载清理后的文件</a>
+                </div>
+            </div>
+        </div>
     </div>
-    <script src="/js/main.js"></script> </body>
+
+    <script>
+        // 选项卡切换功能
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 更新活动标签
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // 更新活动面板
+                const tabId = tab.getAttribute('data-tab');
+                document.querySelectorAll('.function-panel').forEach(panel => {
+                    panel.classList.remove('active');
+                });
+                document.getElementById(`${tabId}-panel`).classList.add('active');
+            });
+        });
+        
+        // 文件上传区域交互
+        const uploadAreas = document.querySelectorAll('.file-upload-wrapper');
+        uploadAreas.forEach(area => {
+            const input = area.querySelector('.file-input');
+            
+            // 拖放功能
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                area.classList.add('drag-over');
+            });
+            
+            area.addEventListener('dragleave', () => {
+                area.classList.remove('drag-over');
+            });
+            
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                area.classList.remove('drag-over');
+                input.files = e.dataTransfer.files;
+                handleFiles(input.files, input.id);
+            });
+            
+            // 点击打开文件选择器
+            area.addEventListener('click', () => {
+                input.click();
+            });
+            
+            // 文件选择变化
+            input.addEventListener('change', () => {
+                handleFiles(input.files, input.id);
+            });
+        });
+        
+        // 处理上传的文件
+        function handleFiles(files, inputId) {
+            const prefix = inputId.split('-')[0];
+            const fileList = document.getElementById(`${prefix}-file-list`);
+            const submitButton = document.getElementById(`${prefix}-button`);
+            
+            fileList.innerHTML = '';
+            
+            if (files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-size">${formatFileSize(file.size)}</div>
+                        <div class="file-remove" data-index="${i}">⤬</div>
+                    `;
+                    fileList.appendChild(fileItem);
+                }
+                
+                submitButton.disabled = false;
+                
+                // 为删除按钮添加事件
+                document.querySelectorAll(`#${prefix}-file-list .file-remove`).forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const index = parseInt(e.target.getAttribute('data-index'));
+                        removeFile(index, prefix);
+                    });
+                });
+            } else {
+                submitButton.disabled = true;
+            }
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // 删除文件
+        function removeFile(index, prefix) {
+            const input = document.getElementById(`${prefix}-file-input`);
+            const files = Array.from(input.files);
+            files.splice(index, 1);
+            
+            // 创建新的FileList
+            const dataTransfer = new DataTransfer();
+            files.forEach(file => dataTransfer.items.add(file));
+            input.files = dataTransfer.files;
+            
+            // 更新文件列表显示
+            handleFiles(input.files, input.id);
+        }
+        
+        // 选项标签交互
+        document.querySelectorAll('.option-label').forEach(label => {
+            const input = label.querySelector('input[type="radio"], input[type="checkbox"]');
+            
+            label.addEventListener('click', () => {
+                if (input.type === 'radio') {
+                    document.querySelectorAll(`.option-group input[name="${input.name}"]`).forEach(radio => {
+                        radio.parentElement.classList.remove('selected');
+                    });
+                }
+                
+                if (input.type === 'checkbox') {
+                    input.checked = !input.checked;
+                } else {
+                    input.checked = true;
+                }
+                
+                label.classList.toggle('selected', input.checked);
+            });
+        });
+        
+        // 模拟提交按钮点击
+        document.querySelectorAll('.submit-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const prefix = button.id.split('-')[0];
+                const loader = document.getElementById(`${prefix}-loader`);
+                const preview = document.getElementById(`${prefix}-preview`);
+                
+                // 显示加载器
+                loader.style.display = 'block';
+                
+                // 模拟处理时间
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    preview.style.display = 'block';
+                }, 2000);
+            });
+        });
+    </script>
+</body>
 </html>
