@@ -756,31 +756,6 @@
         <i class="fas fa-bug"></i>
     </div>
 
-    <!-- 小虫虫测试面板 -->
-    <div id="test-panel" style="position: fixed; bottom: 70px; right: 20px; width: 300px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1000;">
-        <h3 style="margin-bottom: 15px;">API测试</h3>
-        
-        <div class="test-buttons" style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <button class="test-btn" data-endpoint="/health" data-method="GET">/health</button>
-            <button class="test-btn" data-endpoint="/api/test" data-method="POST">/api/test</button>
-            <button class="test-btn" data-endpoint="/api/merge/preview" data-method="POST">/api/merge/preview</button>
-        </div>
-        
-        <!-- 测试数据输入区域 -->
-        <div id="test-data-area" style="margin-bottom: 15px; display: none;">
-            <textarea id="test-data" style="width: 100%; height: 80px; padding: 8px; border: 1px solid #dee2e6; border-radius: 6px;" placeholder="输入测试JSON数据"></textarea>
-        </div>
-        
-        <div id="test-loader" style="display: none; text-align: center;">
-            <div class="spinner" style="width: 30px; height: 30px; border: 3px solid rgba(67, 97, 238, 0.2); border-top: 3px solid #4361ee; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
-            <p style="font-size: 0.9rem;">测试中...</p>
-        </div>
-        
-        <div id="test-error" style="display: none; color: #f72585; padding: 10px; background-color: rgba(220, 53, 69, 0.1); border-radius: 6px; margin: 10px 0; font-size: 0.9rem;"></div>
-        
-        <pre id="test-result" style="background: #f8f9fa; padding: 10px; border-radius: 6px; max-height: 200px; overflow: auto; font-size: 0.8rem; display: none;"></pre>
-    </div>
-
     <script>
         // 初始化调试状态
         let debugEnabled = false;
@@ -812,7 +787,6 @@
         function toggleDebug() {
             const debugInfo = document.getElementById('debug-info');
             const devToggle = document.getElementById('dev-toggle');
-            const testPanel = document.getElementById('test-panel'); //接口测试面板
             
             debugEnabled = !debugEnabled;
             
@@ -849,8 +823,8 @@
         });
 
         // --- 定义基地址 (推荐方法：使用相对路径) ---
-        //const API_BASE_URL = ''; // 空字符串表示相对路径，请求会发送到当前域名 (即后端服务的域名和端口)
-        const API_BASE_URL = 'http://playharder.online'; 
+        const API_BASE_URL = ''; // 空字符串表示相对路径，请求会发送到当前域名 (即后端服务的域名和端口)
+        //const API_BASE_URL = 'http://playharder.online'; 
         // 选项卡切换功能
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -1489,10 +1463,6 @@
                 }
             }, interval);
         }
-        
-        //添加小虫虫测试面板的处理函数
-        // 测试API端点
-        document.querySelectorAll('.test-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const endpoint = this.getAttribute('data-endpoint');
                 const method = this.getAttribute('data-method');
