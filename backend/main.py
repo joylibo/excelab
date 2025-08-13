@@ -54,7 +54,7 @@ async def process_uploaded_files(files: List[UploadFile]) -> List[pd.DataFrame]:
         df = None
         try:
             if filename.endswith((".xlsx", ".xls")):
-                excel_file = pd.ExcelFile(content)
+                excel_file = pd.ExcelFile(content, engine='openpyxl')
                 for sheet_name in excel_file.sheet_names:
                     df = excel_file.parse(sheet_name)
                     if not df.empty:
@@ -218,7 +218,7 @@ async def get_split_columns(file: UploadFile = File(...)):
 
         if filename.endswith((".xlsx", ".xls")):
             # 读取第一个 sheet
-            excel_file = pd.ExcelFile(content)
+            excel_file = pd.ExcelFile(content, engine='openpyxl')
             df = excel_file.parse(excel_file.sheet_names[0])
         elif filename.endswith(".csv"):
             try:
@@ -258,7 +258,7 @@ async def split_file_api(
         df = None
 
         if filename.endswith((".xlsx", ".xls")):
-            excel_file = pd.ExcelFile(content)
+            excel_file = pd.ExcelFile(content, engine='openpyxl')
             df = excel_file.parse(excel_file.sheet_names[0]) # 通常拆分第一个sheet
         elif filename.endswith(".csv"):
             try:
@@ -344,7 +344,7 @@ async def clean_preview_api(
         df_original = None
 
         if filename.endswith((".xlsx", ".xls")):
-            excel_file = pd.ExcelFile(content)
+            excel_file = pd.ExcelFile(content, engine='openpyxl')
             df_original = excel_file.parse(excel_file.sheet_names[0]) # 通常处理第一个sheet
         elif filename.endswith(".csv"):
             try:
@@ -409,7 +409,7 @@ async def clean_file_api(
         df_original = None
 
         if filename.endswith((".xlsx", ".xls")):
-            excel_file = pd.ExcelFile(content)
+            excel_file = pd.ExcelFile(content, engine='openpyxl')
             df_original = excel_file.parse(excel_file.sheet_names[0])
         elif filename.endswith(".csv"):
             try:
