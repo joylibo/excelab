@@ -756,10 +756,23 @@
         <i class="fas fa-bug"></i>
     </div>
 
-    <!-- 添加测试按钮 -->
-    <div class="dev-buttons" id="dev-buttons" style="position: fixed; bottom: 15px; right: 70px;">
-        <button onclick="testEndpoint('/health')" style="margin-right: 5px;">/health</button>
-        <button onclick="testEndpoint('/api/test')">/api/test</button>
+    <!-- 测试面板 -->
+    <div id="test-panel" style="position: fixed; bottom: 70px; right: 20px; width: 300px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1000;">
+        <h3 style="margin-bottom: 15px;">API测试</h3>
+        
+        <div class="test-buttons" style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button class="test-btn" data-endpoint="/health">/health</button>
+            <button class="test-btn" data-endpoint="/api/test">/api/test</button>
+        </div>
+        
+        <div id="test-loader" style="display: none; text-align: center;">
+            <div class="spinner" style="width: 30px; height: 30px; border: 3px solid rgba(67, 97, 238, 0.2); border-top: 3px solid #4361ee; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
+            <p style="font-size: 0.9rem;">测试中...</p>
+        </div>
+        
+        <div id="test-error" style="display: none; color: #f72585; padding: 10px; background-color: rgba(220, 53, 69, 0.1); border-radius: 6px; margin: 10px 0; font-size: 0.9rem;"></div>
+        
+        <pre id="test-result" style="background: #f8f9fa; padding: 10px; border-radius: 6px; max-height: 200px; overflow: auto; font-size: 0.8rem; display: none;"></pre>
     </div>
 
     <script>
@@ -793,16 +806,19 @@
         function toggleDebug() {
             const debugInfo = document.getElementById('debug-info');
             const devToggle = document.getElementById('dev-toggle');
+            const testPanel = document.getElementById('test-panel'); //接口测试面板
             
             debugEnabled = !debugEnabled;
             
             if (debugEnabled) {
                 debugInfo.classList.add('visible');
                 devToggle.innerHTML = '<i class="fas fa-times"></i>';
+                testPanel.style.display = 'block';
                 logEvent('调试模式已启用');
             } else {
                 debugInfo.classList.remove('visible');
                 devToggle.innerHTML = '<i class="fas fa-bug"></i>';
+                testPanel.style.display = 'none';
                 logEvent('调试模式已禁用');
             }
             
@@ -1467,18 +1483,49 @@
                 }
             }, interval);
         }
-        async function testEndpoint(endpoint) {
-            logEvent(`开始测试 ${endpoint} 接口`);
-            try {
-                const response = await fetch(`${API_BASE_URL}${endpoint}`);
-                const data = await response.json();
-                logEvent(`${endpoint} 响应: ${JSON.stringify(data)}`);
-                alert(`${endpoint} 测试成功:\n${JSON.stringify(data, null, 2)}`);
-            } catch (error) {
-                logEvent(`${endpoint} 测试失败: ${error.message}`);
-                alert(`${endpoint} 测试失败:\n${error.message}`);
-            }
-        }
+        
+        //添加小虫虫测试面板的处理函数
+        // 测试API端点
+        document.querySelectorAll('.test-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const endpoint = this.getAttribute('data-endpoint');
+                const loader = document.getElementById('test-loader');
+                const errorElement = document.getElementById('test-error');
+                const resultElement = document.getElementById('test-result');
+                
+                // 重置状态
+                errorElement.style.display = 'none';
+                resultElement.style.display = 'none';
+                loader.style.display = 'block';
+                
+                logEvent(`开始测试 ${endpoint} 接口`);
+                
+                try {
+                    const startTime = Date.now();
+                    const response = await fetch(`${API_BASE_URL}${endpoint}`);
+                    const responseTime = Date.now() - startTime;
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.detail || `请求失败 (${response.status})`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // 显示结果
+                    resultElement.textContent = JSON.stringify(data, null, 2);
+                    resultElement.style.display = 'block';
+                    
+                    logEvent(`${endpoint} 测试成功 (${responseTime}ms)`);
+                } catch (error) {
+                    errorElement.textContent = error.message;
+                    errorElement.style.display = 'block';
+                    logEvent(`${endpoint} 测试失败: ${error.message}`);
+                } finally {
+                    loader.style.display = 'none';
+                }
+            });
+        });
 
     </script>
 </body>
