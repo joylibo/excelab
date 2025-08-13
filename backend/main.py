@@ -14,6 +14,7 @@ import json
 import zipfile
 import tempfile
 import os
+import sys
 
 # --- 配置与模型定义 ---
 logging.basicConfig(level=logging.INFO)
@@ -451,7 +452,13 @@ def health_check():
 # 在 backend/main.py 中添加一个简单的测试路由
 @app.post("/api/test")
 async def test_post():
-    return {"message": "POST request successful"}
+    return {
+        "message": "POST request successful",
+        "python_executable": sys.executable,
+        "python_path": sys.path,
+        "current_working_directory": os.getcwd(),
+        "environment_variables": dict(os.environ)
+    }
 
 # --- 挂载前端静态文件 ---
 # 假设你的项目根目录结构如上所示
