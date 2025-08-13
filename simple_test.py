@@ -20,7 +20,7 @@ print(f"\n测试读取文件: {filename}")
 try:
     # 测试1: 直接读取
     print("\n--- 测试1: 直接读取 ---")
-    df = pd.read_excel(filename)
+    df = pd.read_excel(filename, engine='openpyxl')
     print(f"✅ 直接读取成功! 形状: {df.shape}")
     
     # 测试2: 模拟上传方式
