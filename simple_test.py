@@ -28,7 +28,7 @@ try:
     with open(filename, 'rb') as f:
         content = BytesIO(f.read())
     
-    excel_file = pd.ExcelFile(content)
+    excel_file = pd.ExcelFile(content, engine='openpyxl')
     print(f"✅ ExcelFile创建成功! 工作表: {excel_file.sheet_names}")
     
     for sheet in excel_file.sheet_names:
