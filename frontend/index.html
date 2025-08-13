@@ -756,13 +756,18 @@
         <i class="fas fa-bug"></i>
     </div>
 
-    <!-- 测试面板 -->
+    <!-- 小虫虫测试面板 -->
     <div id="test-panel" style="position: fixed; bottom: 70px; right: 20px; width: 300px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1000;">
         <h3 style="margin-bottom: 15px;">API测试</h3>
         
         <div class="test-buttons" style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <button class="test-btn" data-endpoint="/health">/health</button>
-            <button class="test-btn" data-endpoint="/api/test">/api/test</button>
+            <button class="test-btn" data-endpoint="/health" data-method="GET">/health</button>
+            <button class="test-btn" data-endpoint="/api/test" data-method="POST">/api/test</button>
+        </div>
+        
+        <!-- 测试数据输入区域 -->
+        <div id="test-data-area" style="margin-bottom: 15px; display: none;">
+            <textarea id="test-data" style="width: 100%; height: 80px; padding: 8px; border: 1px solid #dee2e6; border-radius: 6px;" placeholder="输入测试JSON数据"></textarea>
         </div>
         
         <div id="test-loader" style="display: none; text-align: center;">
@@ -1489,20 +1494,46 @@
         document.querySelectorAll('.test-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const endpoint = this.getAttribute('data-endpoint');
+                const method = this.getAttribute('data-method');
                 const loader = document.getElementById('test-loader');
                 const errorElement = document.getElementById('test-error');
                 const resultElement = document.getElementById('test-result');
+                const testDataArea = document.getElementById('test-data-area');
+                const testDataInput = document.getElementById('test-data');
+                
+                // 根据方法显示/隐藏测试数据区域
+                testDataArea.style.display = method === 'POST' ? 'block' : 'none';
                 
                 // 重置状态
                 errorElement.style.display = 'none';
                 resultElement.style.display = 'none';
                 loader.style.display = 'block';
                 
-                logEvent(`开始测试 ${endpoint} 接口`);
-                
+                logEvent(`开始测试 ${method} ${endpoint}`);
+
                 try {
                     const startTime = Date.now();
-                    const response = await fetch(`${API_BASE_URL}${endpoint}`);
+                    let requestOptions = {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    };
+
+                    // 如果是POST请求且输入了测试数据
+                    if (method === 'POST') {
+                        let requestData = {};
+                        try {
+                            if (testDataInput.value.trim()) {
+                                requestData = JSON.parse(testDataInput.value);
+                            }
+                        } catch (e) {
+                            throw new Error('测试数据不是有效的JSON格式');
+                        }
+                        requestOptions.body = JSON.stringify(requestData);
+                    }
+
+                    const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
                     const responseTime = Date.now() - startTime;
                     
                     if (!response.ok) {
@@ -1513,14 +1544,18 @@
                     const data = await response.json();
                     
                     // 显示结果
-                    resultElement.textContent = JSON.stringify(data, null, 2);
+                    resultElement.textContent = JSON.stringify({
+                        status: response.status,
+                        responseTime: `${responseTime}ms`,
+                        data: data
+                    }, null, 2);
                     resultElement.style.display = 'block';
                     
-                    logEvent(`${endpoint} 测试成功 (${responseTime}ms)`);
+                    logEvent(`${method} ${endpoint} 测试成功 (${responseTime}ms)`);
                 } catch (error) {
                     errorElement.textContent = error.message;
                     errorElement.style.display = 'block';
-                    logEvent(`${endpoint} 测试失败: ${error.message}`);
+                    logEvent(`${method} ${endpoint} 测试失败: ${error.message}`);
                 } finally {
                     loader.style.display = 'none';
                 }
