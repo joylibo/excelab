@@ -1501,6 +1501,14 @@
                 const resultElement = document.getElementById('test-result');
                 const testDataArea = document.getElementById('test-data-area');
                 const testDataInput = document.getElementById('test-data');
+                const prefix = 'merge';
+                const fileInput = document.getElementById(`${prefix}-file-input`);
+                const mergeMode = document.querySelector('input[name="merge_mode"]:checked').value;
+                const formData = new FormData();
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    formData.append('files', fileInput.files[i]);
+                }
+                formData.append('merge_mode', mergeMode);
                 
                 // 根据方法显示/隐藏测试数据区域
                 testDataArea.style.display = method === 'POST' ? 'block' : 'none';
@@ -1515,23 +1523,12 @@
                 try {
                     const startTime = Date.now();
                     let requestOptions = {
-                        method: method,
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
+                        method: method
                     };
 
                     // 如果是POST请求且输入了测试数据
                     if (method === 'POST') {
-                        let requestData = {};
-                        try {
-                            if (testDataInput.value.trim()) {
-                                requestData = JSON.parse(testDataInput.value);
-                            }
-                        } catch (e) {
-                            throw new Error('测试数据不是有效的JSON格式');
-                        }
-                        requestOptions.body = JSON.stringify(requestData);
+                        requestOptions.body = formData;
                     }
 
                     const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
