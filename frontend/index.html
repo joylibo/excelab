@@ -756,6 +756,12 @@
         <i class="fas fa-bug"></i>
     </div>
 
+    <!-- 添加测试按钮 -->
+    <div class="dev-buttons" id="dev-buttons" style="position: fixed; bottom: 15px; right: 70px; display: none;">
+        <button onclick="testEndpoint('/health')" style="margin-right: 5px;">/health</button>
+        <button onclick="testEndpoint('/api/test')">/api/test</button>
+    </div>
+
     <script>
         // 初始化调试状态
         let debugEnabled = false;
@@ -1461,6 +1467,19 @@
                 }
             }, interval);
         }
+        async function testEndpoint(endpoint) {
+            logEvent(`开始测试 ${endpoint} 接口`);
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`);
+                const data = await response.json();
+                logEvent(`${endpoint} 响应: ${JSON.stringify(data)}`);
+                alert(`${endpoint} 测试成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                logEvent(`${endpoint} 测试失败: ${error.message}`);
+                alert(`${endpoint} 测试失败:\n${error.message}`);
+            }
+        }
+
     </script>
 </body>
 </html>
