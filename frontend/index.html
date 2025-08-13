@@ -1135,7 +1135,7 @@
                     simulateProgress(progress, 2000); // 模拟下载进度
 
                     try {
-                        const downloadResponse = await fetch(`${API_BASE_URL}/api/merge/preview`, {
+                        const downloadResponse = await fetch(`${API_BASE_URL}/api/merge`, {
                             method: 'POST',
                             body: formData, // 复用之前的 formData
                         });
