@@ -68,7 +68,7 @@ async def process_uploaded_files(files: List[UploadFile]) -> List[pd.DataFrame]:
                 if not df.empty:
                     dataframes.append(df)
         except Exception as e:
-            logger.error(f"读取文件 {file.filename} 时出错: {e}")
+            logger.error(f"读取文件 {file.filename} 时出错: {e}",exc_info=True)
             raise HTTPException(status_code=400, detail=f"无法解析文件 {file.filename}: {str(e)}")
     if not dataframes:
         raise HTTPException(status_code=400, detail="上传的文件均无法解析或内容为空。")
