@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excelab Pro - 表格工具箱</title>
+    <!-- SEO 优化 -->
+    <title>不卷工具箱 - 在线Excel表格合并、拆分、清理</title>
+    <meta name="description" content="不卷工具箱提供免费的在线Excel表格处理功能，包括文件合并、按列拆分、数据清理（删除空行/列、清除空格）等，操作简单高效。">
+    <meta name="keywords" content="在线Excel工具, 表格合并, 表格拆分, 数据清理, Excel处理, 不卷工具箱">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -29,10 +32,10 @@
         body {
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 15px; /* 可根据需要调整 */
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* 改为 flex-start，让内容从顶部开始，避免小屏幕下内容被截断 */
             color: var(--dark-color);
             line-height: 1.6;
         }
@@ -42,28 +45,39 @@
             border-radius: 16px;
             box-shadow: var(--shadow);
             width: 100%;
-            max-width: 900px;
+            /* 布局优化：增加最大宽度，使用 clamp 实现更灵活的响应式宽度 */
+            max-width: clamp(900px, 90%, 1400px); /* 最小900px, 理想90% viewport width, 最大1400px */
             overflow: hidden;
         }
         
         header {
             background: linear-gradient(120deg, var(--primary-color), var(--secondary-color));
             color: white;
-            padding: 30px 40px;
+            padding: 20px 5%; /* 使用百分比 padding，适应容器宽度变化 */
             text-align: center;
         }
         
         header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            font-size: clamp(1.8rem, 4vw, 2.2rem); /* 响应式字体大小 */
+            margin-bottom: 8px;
             font-weight: 700;
         }
         
         header p {
-            font-size: 1.1rem;
+            font-size: 1rem;
             opacity: 0.9;
-            max-width: 600px;
+            max-width: 600px; /* 可以根据新容器宽度调整 */
             margin: 0 auto;
+        }
+        
+        nav {
+            margin-top: 12px; 
+        }
+
+        nav a {
+            font-size: 1.1rem; 
+            padding: 8px 15px; 
+            margin: 0 8px; 
         }
         
         .tabs {
@@ -74,10 +88,10 @@
         
         .tab {
             flex: 1;
-            padding: 18px 20px;
+            padding: 14px 20px;
             text-align: center;
             font-weight: 600;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             cursor: pointer;
             transition: all 0.3s ease;
             color: var(--gray-color);
@@ -96,7 +110,7 @@
         }
         
         .tab-content {
-            padding: 30px 40px;
+            padding: 25px clamp(20px, 4%, 40px); /* 垂直padding固定，水平padding响应式 */
         }
         
         .function-panel {
@@ -114,8 +128,8 @@
         }
         
         .panel-title {
-            font-size: 1.5rem;
-            margin-bottom: 25px;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
             color: var(--dark-color);
             display: flex;
             align-items: center;
@@ -125,13 +139,13 @@
             margin-right: 12px;
             background: var(--primary-color);
             color: white;
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
+            font-size: 1rem;
         }
         
         .file-upload-wrapper {
@@ -498,7 +512,7 @@
         
         @media (max-width: 768px) {
             body {
-                padding: 10px;
+                padding: 10px; /* 移动端减小外边距 */
             }
             
             .container {
@@ -506,7 +520,7 @@
             }
             
             header {
-                padding: 20px;
+                padding: 20px clamp(10px, 5%, 20px); /* 响应式内边距 */
             }
             
             header h1 {
@@ -514,7 +528,7 @@
             }
             
             .tab-content {
-                padding: 20px;
+                padding: 20px 15px; /* 移动端进一步减小内边距 */
             }
             
             .tabs {
@@ -549,8 +563,13 @@
 <body>
     <div class="container">
         <header>
-            <h1>Excelab Pro</h1>
-            <p>Excel表格处理工具，支持合并、拆分和清理表格数据</p>
+            <h1>不卷工具箱</h1>
+            <p>免费，透明，好用的文件处理站，欢迎收藏，或者推荐给你的朋友</p>
+            <nav style="margin-top: 15px;">
+                <a href="#" style="color: white; margin: 0 10px; text-decoration: underline;">表格处理</a>
+                <a href="#" style="color: rgba(255,255,255,0.7); margin: 0 10px;">文本处理</a>
+                <a href="#" style="color: rgba(255,255,255,0.7); margin: 0 10px;">图片处理</a>
+            </nav>
         </header>
         
         <div class="tabs">
@@ -746,13 +765,13 @@
     </div>
 
     <!-- 调试信息区域 - 默认隐藏 -->
-    <div class="debug-info" id="debug-info">
+    <div class="debug-info hidden" id="debug-info">
         <strong>调试信息:</strong>
         <div id="event-log"></div>
     </div>
     
     <!-- 开发者开关 - 仅开发人员可见 -->
-    <div class="dev-toggle" id="dev-toggle">
+    <div class="dev-toggle hidden" id="dev-toggle">
         <i class="fas fa-bug"></i>
     </div>
 
@@ -783,44 +802,81 @@
             }
         }
         
-        // 切换调试信息显示
-        function toggleDebug() {
-            const debugInfo = document.getElementById('debug-info');
-            const devToggle = document.getElementById('dev-toggle');
-            
-            debugEnabled = !debugEnabled;
-            
-            if (debugEnabled) {
-                debugInfo.classList.add('visible');
-                devToggle.innerHTML = '<i class="fas fa-times"></i>';
-                testPanel.style.display = 'block';
-                logEvent('调试模式已启用');
-            } else {
-                debugInfo.classList.remove('visible');
-                devToggle.innerHTML = '<i class="fas fa-bug"></i>';
-                testPanel.style.display = 'none';
-                logEvent('调试模式已禁用');
-            }
-            
-            // 保存用户偏好
-            localStorage.setItem('debugEnabled', debugEnabled ? 'true' : 'false');
-        }
-        
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
             logEvent('页面加载完成');
-            
-            // 检查本地存储中的调试偏好
-            const savedDebug = localStorage.getItem('debugEnabled');
-            if (savedDebug === 'true') {
-                debugEnabled = true;
-                document.getElementById('debug-info').classList.add('visible');
-                document.getElementById('dev-toggle').innerHTML = '<i class="fas fa-times"></i>';
+
+            // --- 检查是否为本地访问 (127.0.0.1 ---
+            const hostname = window.location.hostname;
+            const isLocal = (hostname === '127.0.0.1');
+            const debugInfoElement = document.getElementById('debug-info');
+            const devToggleElement = document.getElementById('dev-toggle');
+
+            if (isLocal) {
+                // 如果是本地访问，则显示调试元素
+                if (debugInfoElement) debugInfoElement.classList.remove('hidden');
+                if (devToggleElement) devToggleElement.classList.remove('hidden');
+                logEvent('检测到本地访问，调试功能已启用');
+            } else {
+                logEvent('非本地访问，调试功能已禁用');
             }
-            
-            // 设置开发者开关事件
-            document.getElementById('dev-toggle').addEventListener('click', toggleDebug);
+            // --- 新增结束 ---
+
+            // 检查本地存储中的调试偏好 (这部分逻辑保持不变，但只在本地有效)
+            // 注意：这里需要确保只有在 isLocal 为 true 时才执行后续与调试显示相关的操作
+            let debugEnabled = false; // 在这个作用域内声明 debugEnabled
+            if (isLocal) {
+                const savedDebug = localStorage.getItem('debugEnabled');
+                if (savedDebug === 'true') {
+                    debugEnabled = true;
+                    // 仅在本地且用户设置了启用时才显示调试信息
+                    if (debugInfoElement) {
+                         debugInfoElement.classList.add('visible');
+                    }
+                    if (devToggleElement) {
+                        devToggleElement.innerHTML = '<i class="fas fa-times"></i>';
+                    }
+                }
+            }
+
+            // 设置开发者开关事件 (同样，只在本地时才绑定事件)
+            if (isLocal && devToggleElement) {
+                devToggleElement.addEventListener('click', toggleDebug);
+            }
+
+            // 将 debugEnabled 定义移到外部作用域，以便 toggleDebug 等函数可以访问
+            // (或者重构 toggleDebug 函数，使其不依赖全局的 debugEnabled)
+            // 这里我们选择重构 toggleDebug 使其更独立
         });
+
+        // --- 修改 toggleDebug 函数以使其更独立 ---
+        // 将 debugEnabled 移入函数内部或通过参数传递/闭包管理
+        function toggleDebug() {
+            const debugInfo = document.getElementById('debug-info');
+            const devToggle = document.getElementById('dev-toggle');
+            // 检查当前状态，而不是依赖全局变量
+            const isCurrentlyVisible = debugInfo.classList.contains('visible');
+
+            if (isCurrentlyVisible) {
+                // 当前是可见的，需要隐藏
+                debugInfo.classList.remove('visible');
+                if (devToggle) {
+                    devToggle.innerHTML = '<i class="fas fa-bug"></i>';
+                }
+                // 保存用户偏好
+                localStorage.setItem('debugEnabled', 'false');
+                logEvent('调试模式已禁用');
+            } else {
+                // 当前是隐藏的，需要显示
+                debugInfo.classList.add('visible');
+                if (devToggle) {
+                    devToggle.innerHTML = '<i class="fas fa-times"></i>';
+                }
+                 // 保存用户偏好
+                localStorage.setItem('debugEnabled', 'true');
+                logEvent('调试模式已启用');
+            }
+        }
 
         // --- 定义基地址 (推荐方法：使用相对路径) ---
         const API_BASE_URL = ''; // 空字符串表示相对路径，请求会发送到当前域名 (即后端服务的域名和端口)
