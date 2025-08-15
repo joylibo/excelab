@@ -13,8 +13,11 @@ from functools import reduce
 import json
 import zipfile
 import tempfile
+import fitz  # PyMuPDF
 import os
 import sys
+import re
+import urllib.parse
 
 # --- 配置与模型定义 ---
 logging.basicConfig(level=logging.INFO)
@@ -45,12 +48,30 @@ app.add_middleware(
 )
 
 # --- 辅助函数 ---
+
+def sanitize_filename(filename: str, replacement: str = "_") -> str:
+    """
+    清理文件名，去掉非法字符，保留中文、英文、数字、常用符号。
+    """
+    # 去掉路径（防止上传带路径）
+    filename = os.path.basename(filename)
+    # 只保留中英文、数字、空格、下划线、连字符、点号
+    filename = re.sub(r"[^0-9A-Za-z\u4e00-\u9fff _\-.]", replacement, filename)
+    # 避免空文件名
+    if not filename.strip():
+        filename = "file"
+    return filename
+
 async def process_uploaded_files(files: List[UploadFile]) -> List[pd.DataFrame]:
     """读取并解析上传的文件为 pandas DataFrame 列表。"""
     dataframes = []
     for file in files:
+
+        # 文件名清理，防止非法字符
+        clean_filename = sanitize_filename(file.filename)
+
         content = BytesIO(await file.read())
-        filename = file.filename.lower()
+        filename = clean_filename.lower()
         df = None
         try:
             if filename.endswith((".xlsx", ".xls")):
@@ -443,6 +464,55 @@ async def clean_file_api(
     except Exception as e:
         logger.error(f"清理文件时发生错误: {e}")
         raise HTTPException(status_code=500, detail=f"服务器内部错误: {e}")
+
+
+@app.post("/api/pdf-to-images")
+async def pdf_to_images(
+    file: UploadFile = File(..., description="PDF 文件"),
+    format: str = Form(..., description="图片格式，png 或 jpeg"),
+    dpi: int = Form(150, description="图片 DPI"),
+):
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="上传的文件必须是 PDF 格式。")
+
+    if format.lower() not in ["png", "jpeg"]:
+        raise HTTPException(status_code=400, detail="图片格式必须是 png 或 jpeg。")
+
+    try:
+        pdf_bytes = await file.read()
+        pdf_stream = BytesIO(pdf_bytes)
+        doc = fitz.open(stream=pdf_stream, filetype="pdf")
+
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                pix = page.get_pixmap(dpi=dpi)
+                img_bytes = pix.tobytes(output=format)
+                img_filename = f"page_{page_num+1}.{format.lower()}"
+                zip_file.writestr(img_filename, img_bytes)
+
+        zip_buffer.seek(0)
+        doc.close()
+
+        # 清理文件名
+        original_filename_no_ext = sanitize_filename(file.filename.rsplit(".", 1)[0])
+        zip_filename = f"{original_filename_no_ext}_images.zip"
+
+        # Content-Disposition 安全处理
+        safe_ascii_name = "converted_images.zip"
+        quoted_name = urllib.parse.quote(zip_filename)
+
+        headers = {
+            "Content-Disposition": f"attachment; filename={safe_ascii_name}; filename*=UTF-8''{quoted_name}"
+        }
+
+        return StreamingResponse(zip_buffer, media_type="application/zip", headers=headers)
+
+    except Exception as e:
+        logger.error(f"PDF 转换失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"PDF 转换失败: {str(e)}")
+
 
 @app.get("/health")
 def health_check():
