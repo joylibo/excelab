@@ -10,6 +10,7 @@ from io import BytesIO
 from typing import List, Optional
 from enum import Enum
 from functools import reduce
+from PIL import Image
 import json
 import zipfile
 import tempfile
@@ -40,6 +41,20 @@ init_db()
 # --- 配置与模型定义 ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# 支持的输入格式（文件扩展名）
+SUPPORTED_INPUT_FORMATS = {".jpg", ".jpeg", ".png", ".webp", ".tiff", ".tif", ".bmp", ".gif"}
+# Pillow 中对应的格式标识
+FORMAT_MAP = {
+    ".jpg": "JPEG",
+    ".jpeg": "JPEG",
+    ".png": "PNG",
+    ".gif": "GIF",
+    ".bmp": "BMP",
+    ".tiff": "TIFF",
+    ".tif": "TIFF",
+    ".webp": "WEBP"
+}
 
 class MergeMode(str, Enum):
     OUTER = "outer"
@@ -727,6 +742,110 @@ async def pdfmerge_api(
     except Exception as e:
         logger.error(f"PDF合并时发生错误: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"服务器内部错误: {e}")
+
+@app.post("/api/image_convert")
+async def image_convert_api(
+    files: list[UploadFile] = File(...),
+    format: str = Form(...)
+):
+    """
+    接收一个或多个图片文件，将其转换为指定格式，并打包为 ZIP 返回。
+    """
+    if not files or all(f.filename == "" for f in files):
+        raise HTTPException(status_code=400, detail="没有提供任何文件。")
+    if not format:
+        raise HTTPException(status_code=400, detail="未指定目标格式。")
+    if not format.startswith("."):
+        format = "." + format
+    format = format.lower()
+
+    if format not in FORMAT_MAP:
+        raise HTTPException(status_code=400, detail=f"不支持的目标格式: {format}")
+
+    # 过滤空文件
+    valid_files = [f for f in files if f.filename]
+    if not valid_files:
+        raise HTTPException(status_code=400, detail="提供的文件均无效。")
+
+    output_format = format  # 保存目标扩展名
+    output_pil_format = FORMAT_MAP[output_format]  # 获取 PIL 使用的格式名
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = os.path.join(tmpdir, "converted_images.zip")
+
+        try:
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file in valid_files:
+                    filename = file.filename.strip()
+                    if not filename:
+                        continue
+
+                    input_ext = os.path.splitext(filename)[1].lower()
+                    if input_ext not in SUPPORTED_INPUT_FORMATS:
+                        logger.warning(f"跳过不支持的文件格式: {filename}")
+                        continue
+
+                    try:
+                        # 读取原始图像数据
+                        content = await file.read()
+                        image_stream = BytesIO(content)
+                        img = Image.open(image_stream)
+
+                        # 如果是 GIF 且多帧，需要特殊处理
+                        if input_ext == ".gif" and hasattr(img, "n_frames") and img.n_frames > 1:
+                            # 只取第一帧进行转换（避免 ZIP 中出现多个文件）
+                            img.seek(0)
+                            img = img.convert("RGB") if output_pil_format != "GIF" else img
+                        else:
+                            # 对于透明通道等兼容性问题做处理
+                            if img.mode in ("RGBA", "LA", "P") and output_pil_format == "JPEG":
+                                # JPEG 不支持透明通道，转为 RGB 白底
+                                background = Image.new("RGB", img.size, (255, 255, 255))
+                                if img.mode == "P":
+                                    img = img.convert("RGBA")
+                                alpha = img.split()[-1]  # 获取 alpha 通道
+                                background.paste(img, mask=alpha)
+                                img = background
+                            elif img.mode != "RGB" and output_pil_format == "JPEG":
+                                img = img.convert("RGB")
+                            elif img.mode == "P" and output_pil_format in ("PNG", "WEBP", "TIFF"):
+                                # 尽量保留质量
+                                img = img.convert("RGBA" if img.info.get("transparency") else "RGB")
+
+                        # 构造输出文件名
+                        base_name = os.path.splitext(filename)[0]
+                        new_filename = f"{base_name}{output_format}"
+
+                        # 保存转换后的图像到临时字节流
+                        output_buffer = BytesIO()
+                        img.save(output_buffer, format=output_pil_format, optimize=True)
+                        output_buffer.seek(0)
+
+                        # 写入 ZIP
+                        zipf.writestr(new_filename, output_buffer.getvalue())
+
+                    except Exception as e:
+                        logger.error(f"转换图片失败 {filename}: {e}")
+                        raise HTTPException(status_code=400, detail=f"无法处理图片文件 '{filename}': {str(e)}")
+
+            # 读取 ZIP 内容
+            with open(zip_path, "rb") as f:
+                zip_content = f.read()
+
+            zip_stream = BytesIO(zip_content)
+            zip_stream.seek(0)
+
+            return StreamingResponse(
+                zip_stream,
+                media_type="application/zip",
+                headers={"Content-Disposition": "attachment; filename=converted_images.zip"}
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"图片转换过程中发生错误: {e}")
+            raise HTTPException(status_code=500, detail=f"服务器内部错误: {str(e)}")
 
 # 获取客户端ip的工具函数
 def get_client_ip(request):

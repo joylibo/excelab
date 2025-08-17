@@ -178,7 +178,7 @@
                         </a>
                     </div>
                 </div>
-                </div>
+            </div>
         </div>
         <div id="docs" class="page-section">
             <div class="tab-nav-container">
@@ -305,8 +305,68 @@
             </div>
         </div>
         <div id="images" class="page-section">
-            <h3>图片处理功能 is coming soon...</h3>
-            <!-- 这里添加实际内容 -->           
+            <div class="tab-nav-container">
+                <div class="tab-nav">
+                    <button class="tab-button active" data-tab="convert">图片格式转换</button>
+                    <button class="tab-button" data-tab="frame">图片镶边</button>
+                    <button class="tab-button" data-tab="gallery">制作图片墙</button>
+                </div>
+            </div>
+
+            <div class="tab-content">
+                <div id="convert" class="tab-pane active">
+                    <div class="file-upload-wrapper" id="convert-upload-area">
+                        <div class="file-upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                        <span class="file-upload-label">点击或拖拽多个图片文件到此处</span>
+                        <p class="info-text">支持 jpg、png、webp、tiff、bmp、gif 文件格式</p>
+                        <input type="file" class="file-input" id="convert-file-input" multiple accept=".jpg, .png, .webp, .tiff, .bmp, .gif">
+                    </div>
+
+                    <div id="convert-file-list" class="file-list"></div>
+
+                    <div class="options-card">
+                        <h4><i class="fa-solid fa-sliders"></i> 转换选项</h4>
+                        <div class="select-wrapper">
+                            <label class="option-title">选择目标图片格式：</label>
+                            <select id="convert-format">
+                                <option value=".jpg">.jpg</option>
+                                <option value=".png" selected>.png</option>
+                                <option value=".gif">.gif</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="submit-btn" id="convert-button" disabled>
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> 开始转换
+                    </button>
+                    <div id="convert-loader" class="loader">
+                        <div class="spinner"></div>
+                        <p>正在转换图片，图片较多时可能需要一些时间...</p>
+                        <div class="progress-bar"><div class="progress" id="convert-progress"></div></div>
+                    </div>
+                    <div id="convert-error" class="message-box error"></div>
+                    <div id="convert-success" class="message-box success"></div>
+
+                    <div class="preview-box" id="convert-preview">
+                        <div class="preview-title">
+                            <i class="fa-solid fa-file-zipper"></i>
+                            <h3>转换完成</h3>
+                        </div>
+                        <div class="preview-content" id="convert-preview-content">
+                        </div>
+                        <a href="#" class="download-btn" id="convert-download">
+                            <i class="fa-solid fa-download"></i> 下载图片
+                        </a>
+                    </div>
+
+                </div>
+                <div id="frame" class="tab-pane">
+                    
+                </div>
+                <div id="gallery" class="tab-pane">
+                    
+                </div>
+            </div>
+            
         </div>
 
         <div id="about" class="page-section">

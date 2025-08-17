@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('merge_mode', mergeMode);
 
         try {
-            let progressInterval = simulateProgress(progress, 1500);
+            let progressInterval = simulateProgress(progress, 1500); 
             const previewResponse = await fetch(`${API_BASE_URL}/api/merge/preview`, { method: 'POST', body: formData });
             clearInterval(progressInterval);
             progress.style.width = '100%';
@@ -486,7 +486,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- "不卷文档" (PDF to Image) 模块逻辑 ---
+    // --- "手边文档" (PDF to Image) 模块逻辑 ---
     
     // 文件处理逻辑已经存在于 handleFiles 函数中，这里直接复用
     // 只需确保 HTML 中的 ID 正确即可 (`pdf2img-file-input`, `pdf2img-file-list`, etc.)
@@ -500,8 +500,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const errorElement = document.getElementById(`${prefix}-error`);
         const successElement = document.getElementById(`${prefix}-success`);
         const preview = document.getElementById(`${prefix}-preview`);
-        const previewContent = document.getElementById('pdf2img-preview-content');
-        const downloadBtn = document.getElementById('pdf2img-download');
+        const previewContent = document.getElementById(`${prefix}-preview-content`);
+        const downloadBtn = document.getElementById(`${prefix}-download`);
 
         // 获取转换选项
         const imageFormat = document.querySelector('input[name="image_format"]:checked').value;
@@ -674,6 +674,80 @@ document.addEventListener('DOMContentLoaded', function() {
             logEvent('PDF 下载完成');
         } catch (err) {
             showError(pdfmergeError, err.message);
+        }
+    });
+
+    //图片转换
+    document.getElementById('convert-button').addEventListener('click', async (e) => {
+        e.preventDefault();
+        const prefix = 'convert';
+        const fileInput = document.getElementById(`${prefix}-file-input`);
+        const loader = document.getElementById(`${prefix}-loader`);
+        const progress = document.getElementById(`${prefix}-progress`);
+        const errorElement = document.getElementById(`${prefix}-error`);
+        const successElement = document.getElementById(`${prefix}-success`);
+        const preview = document.getElementById(`${prefix}-preview`);
+        const previewContent = document.getElementById(`${prefix}-preview-content`);
+        const downloadBtn = document.getElementById(`${prefix}-download`);
+
+        // 获取转换选项
+        const imageFormat = document.getElementById('convert-format').value;
+
+        // 重置UI状态
+        preview.style.display = 'none';
+        errorElement.style.display = 'none';
+        successElement.style.display = 'none';
+        loader.style.display = 'block';
+        logEvent(`开始转换图片... 目标格式: ${imageFormat}`);
+        // 创建 FormData 用于API请求
+        const formData = new FormData();
+        for (let i = 0; i < fileInput.files.length; i++) { formData.append('files', fileInput.files[i]); }
+        formData.append('format', imageFormat);
+
+        try {
+            logEvent('开始上传程序');
+            let progressInterval = simulateProgress(progress, 1500);
+            logEvent('准备发请求');
+            const previewResponse = await fetch(`${API_BASE_URL}/api/image_convert`, { method: 'POST', body: formData });
+            clearInterval(progressInterval);
+            
+            progress.style.width = '100%';
+
+            if (!previewResponse.ok) {
+                console.log("请求失败")
+                const errorData = await previewResponse.json().catch(() => ({}));
+                throw new Error(errorData.detail || `请求失败 (${previewResponse.status})`);
+            }
+
+            const blob = await previewResponse.blob();
+            logEvent('转换完成完成，文件已生成');
+            previewContent.innerHTML = `<p style="padding: 20px;">图片已转换成 <strong>${escapeHtml(imageFormat)}</strong> 格式，点击下方按钮即可下载包含所有文件的ZIP压缩包。</p>`;
+            const url = window.URL.createObjectURL(blob);
+            downloadBtn.href = url;
+            downloadBtn.download = `convert.zip`;
+            // downloadBtn.onclick = function(event) {
+            //     event.preventDefault();
+            //     logEvent('用户点击下载按钮');
+            //     const tempLink = document.createElement('a');
+            //     tempLink.href = url;
+            //     tempLink.download = 'convert.zip';
+            //     document.body.appendChild(tempLink);
+            //     tempLink.click();
+            //     document.body.removeChild(tempLink);
+            //     // 不立即 revokeObjectURL, 允许用户重复点击下载
+            // };
+
+            loader.style.display = 'none';
+            successElement.textContent = `拆分完成！请点下方按钮下载 ZIP 文件。`;
+            successElement.style.display = 'block';
+            preview.style.display = 'block';
+
+        } catch (error) {
+            // clearInterval(downloadProgressInterval);
+            // progress.style.width = '0%';
+            loader.style.display = 'none';
+            errorElement.style.display = 'block';
+            showError(errorElement, error.message);
         }
     });
 
