@@ -108,7 +108,66 @@ def merge_dataframes(dataframes: List[pd.DataFrame], mode: MergeMode) -> pd.Data
         # 只保留共同列并合并
         filtered_dfs = [df[common_columns] for df in dataframes]
         merged_df = pd.concat(filtered_dfs, ignore_index=True)
+
+    # 处理数据类型以便JSON序列化
+    merged_df = prepare_dataframe_for_json_serialization(merged_df)
     return merged_df
+
+def prepare_dataframe_for_json_serialization(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    准备DataFrame用于JSON序列化，处理时间戳等特殊数据类型
+    """
+    df_copy = df.copy()
+    
+    for col in df_copy.columns:
+        # 处理时间戳类型
+        if pd.api.types.is_datetime64_any_dtype(df_copy[col]):
+            # 智能转换datetime，保持原有格式习惯
+            df_copy[col] = df_copy[col].apply(convert_datetime_smart)
+        # 处理其他可能的特殊对象类型
+        elif df_copy[col].dtype == 'object':
+            df_copy[col] = df_copy[col].apply(
+                lambda x: str(x) if pd.notna(x) and not isinstance(x, (str, int, float, bool)) else x
+            )
+    
+    # 统一处理NaN值
+    df_copy = df_copy.fillna("")
+    
+    return df_copy
+
+def convert_datetime_smart(dt):
+    """
+    智能转换单个datetime对象，保持原有格式习惯
+    """
+    if pd.isna(dt):
+        return ""
+    
+    try:
+        # 检查是否是只有时间部分（日期是1900-01-01，这是pandas处理纯时间的默认方式）
+        if dt.year == 1900 and dt.month == 1 and dt.day == 1:
+            # 只有时间的情况
+            if dt.microsecond == 0:
+                if dt.second == 0:
+                    return dt.strftime('%H:%M')
+                else:
+                    return dt.strftime('%H:%M:%S')
+            else:
+                return dt.strftime('%H:%M:%S.%f')[:-3]  # 毫秒精度
+        # 检查是否只有日期部分（时间是00:00:00）
+        elif dt.hour == 0 and dt.minute == 0 and dt.second == 0 and dt.microsecond == 0:
+            return dt.strftime('%Y-%m-%d')
+        else:
+            # 完整的日期时间，但去掉不必要的部分
+            if dt.microsecond == 0:
+                if dt.second == 0 and dt.minute == 0 and dt.hour == 0:
+                    return dt.strftime('%Y-%m-%d')
+                else:
+                    return dt.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                return dt.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]  # 毫秒精度
+    except Exception:
+        # 如果转换失败，回退到简单字符串转换
+        return str(dt)
 
 def dataframe_to_excel_bytes(df: pd.DataFrame) -> BytesIO:
     """将 DataFrame 转换为 Excel 字节流。"""
@@ -391,7 +450,9 @@ async def clean_preview_api(
 
         # 获取预览数据 (清理后的)
         preview_df = df_cleaned.head(preview_rows)
-        preview_json = preview_df.fillna("").to_dict(orient='records')
+        # 使用 prepare_dataframe_for_json_serialization 处理数据类型
+        preview_df_processed = prepare_dataframe_for_json_serialization(preview_df)
+        preview_json = preview_df_processed.to_dict(orient='records')
         columns = preview_df.columns.tolist()
 
         return JSONResponse(content={
