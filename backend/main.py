@@ -1,7 +1,7 @@
 # main.py
 import pandas as pd
 import logging
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, status, Query
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, status, Query, Request
 from fastapi.responses import StreamingResponse, JSONResponse # 添加 JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +18,24 @@ import os
 import sys
 import re
 import urllib.parse
+import sqlite3
+from datetime import datetime, timedelta
+
+# 初始化数据库
+def init_db():
+    conn = sqlite3.connect("heart.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS heart_clicks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
 
 # --- 配置与模型定义 ---
 logging.basicConfig(level=logging.INFO)
@@ -709,6 +727,57 @@ async def pdfmerge_api(
     except Exception as e:
         logger.error(f"PDF合并时发生错误: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"服务器内部错误: {e}")
+
+# 获取客户端ip的工具函数
+def get_client_ip(request):
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host
+
+@app.post("/api/heart-click")
+async def heart_click(request: Request):
+    client_ip = get_client_ip(request)
+    now = datetime.now()
+    one_hour_ago = now - timedelta(hours=1)
+
+    conn = sqlite3.connect("heart.db")
+    cursor = conn.cursor()
+
+    # 检查该 IP 是否在过去一小时内点过
+    # cursor.execute("""
+    #     SELECT COUNT(*) FROM heart_clicks
+    #     WHERE ip = ? AND timestamp > ?
+    # """, (client_ip, one_hour_ago))
+    # count = cursor.fetchone()[0]
+
+    # if count > 0:
+    #     conn.close()
+    #     raise HTTPException(status_code=429, detail="Too many requests")
+
+    # 插入新记录
+    cursor.execute("""
+        INSERT INTO heart_clicks (ip, timestamp) VALUES (?, ?)
+    """, (client_ip, now))
+    conn.commit()
+
+    # 获取总点击数
+    cursor.execute("SELECT COUNT(*) FROM heart_clicks")
+    total = cursor.fetchone()[0]
+    conn.close()
+
+    return JSONResponse(content={"message": "Thank you!", "total_clicks": total - 1})
+
+
+@app.get("/api/heart-stats")
+async def heart_stats():
+    conn = sqlite3.connect("heart.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM heart_clicks")
+    total = cursor.fetchone()[0]
+    conn.close()
+    return JSONResponse(content={"total_clicks": total})
+
 
 @app.get("/health")
 def health_check():

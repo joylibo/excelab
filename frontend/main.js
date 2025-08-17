@@ -706,7 +706,93 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 确保 uploadAreas 能找到所有 .file-upload-wrapper
-    console.log('上传区域数量:', uploadAreas.length);
+
+    // --- 小爱心点击功能 ---
+    const heartIcon = document.getElementById('heart-icon');
+    const heartMessage = document.getElementById('heart-message');
+
+    //debug1开始
+    console.log('[DEBUG] heartIcon element:', heartIcon);
+    console.log('[DEBUG] heartMessage element:', heartMessage);
+
+    if (!heartIcon) {
+        console.error('[ERROR] 未找到 heart-icon 元素');
+        return;
+    }
+    //debug1结束
+    // 初始化状态
+    function initHeartState() {
+        const lastClick = localStorage.getItem('heart_last_click');
+        const now = new Date().getTime();
+        if (lastClick && (now - parseInt(lastClick)) < 60 * 60 * 1000) {
+            // 一小时内已经点过
+            heartIcon.style.color = '#e74c3c';
+            heartIcon.style.cursor = 'not-allowed';
+            heartIcon.classList.add('disabled');
+            updateHeartMessage(); // 显示感谢信息
+        } else {
+            heartIcon.style.color = '#ccc';
+            heartIcon.style.cursor = 'pointer';
+            heartIcon.classList.remove('disabled');
+        }
+    }
+
+    // 点击爱心事件 - 使用标准的 addEventListener
+    heartIcon.addEventListener('click', async (e) => {
+        console.log(`[DEBUG] 点击了爱心图标`);
+        // 检查是否已禁用
+        if (heartIcon.classList.contains('disabled')) {
+            return;
+        }
+
+        const now = new Date().getTime();
+        localStorage.setItem('heart_last_click', now.toString());
+
+        // 添加点击动画效果
+        heartIcon.style.transform = 'scale(1.2)';
+        setTimeout(() => {
+            heartIcon.style.transform = 'scale(1)';
+        }, 150);
+
+        // 发送点击事件到后端
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/heart-click`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                heartIcon.style.color = '#e74c3c';
+                heartIcon.style.cursor = 'not-allowed';
+                heartIcon.classList.add('disabled');
+                updateHeartMessage(data.total_clicks);
+            } else {
+                alert('点赞失败，请稍后再试');
+            }
+        } catch (err) {
+            console.error('点赞请求失败:', err);
+            alert('网络错误，请稍后再试');
+        }
+    });
+
+    // 更新提示文字
+    function updateHeartMessage(total = null) {
+        if (total === null) {
+            // 获取总点击数
+            fetch(`${API_BASE_URL}/api/heart-stats`)
+                .then(res => res.json())
+                .then(data => {
+                    heartMessage.textContent = `谢谢你，以及其他 ${data.total_clicks} 位支持的朋友 ❤️`;
+                })
+                .catch(err => {
+                    heartMessage.textContent = '谢谢你 ❤️';
+                });
+        } else {
+            heartMessage.textContent = `谢谢你，以及其他 ${total} 位支持的朋友 ❤️`;
+        }
+    }
+
+    // 页面加载时初始化
+    initHeartState();
 });
 
