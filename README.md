@@ -21,6 +21,14 @@ conda activate excelab311
 ```
 pip install -r requirements.txt
 ```
+基础依赖：
+```
+conda install -c conda-forge uvicorn
+conda install -c conda-forge fastapi
+conda install -c conda-forge pydantic
+conda install -c conda-forge sqlmodel
+conda install -c conda-forge pandas
+```
 
 启动服务器: 
 ```

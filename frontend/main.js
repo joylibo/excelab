@@ -567,15 +567,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const pdfmergePrefix = 'pdfmerge';
     const pdfmergeFileInput = document.getElementById(`${pdfmergePrefix}-file-input`);
     const pdfmergePreviewBox = document.getElementById(`${pdfmergePrefix}-preview`);
-    const pdfmergePreviewContent = document.getElementById(`${pdfmergePrefix}-preview-content`);
     const pdfmergeButton = document.getElementById(`${pdfmergePrefix}-button`);
     const pdfmergeLoader = document.getElementById(`${pdfmergePrefix}-loader`);
     const pdfmergeProgress = document.getElementById(`${pdfmergePrefix}-progress`);
     const pdfmergeError = document.getElementById(`${pdfmergePrefix}-error`);
     const pdfmergeSuccess = document.getElementById(`${pdfmergePrefix}-success`);
-    const pdfmergeTotalPages = document.getElementById(`${pdfmergePrefix}-total-pages`);
-    const pdfmergeTotalSize = document.getElementById(`${pdfmergePrefix}-total-size`);
     const pdfmergeDownload = document.getElementById(`${pdfmergePrefix}-download`);
+    const pdfmergePreviewContent = document.getElementById(`${pdfmergePrefix}-preview-content`);
 
     let pdfmergeLastFormData = null; // 保存预览用的 FormData，下载时复用
 
@@ -618,20 +616,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.detail || `预览请求失败 (${res.status})`);
+                throw new Error(errData.detail || `合并请求失败 (${res.status})`);
             }
 
             const data = await res.json();
             pdfmergeLoader.style.display = 'none';
-            pdfmergeSuccess.textContent = '预览完成，请点击下载按钮获取 PDF';
+            pdfmergeSuccess.textContent = '合并完成，请点击下载按钮获取 PDF';
             pdfmergeSuccess.style.display = 'block';
 
             // 假设后端返回字段：total_pages, total_size, actions
-            pdfmergeTotalPages.textContent = data.total_pages ?? '-';
-            pdfmergeTotalSize.textContent = formatFileSize(data.total_size ?? 0);
+            pdfmergePreviewContent.innerHTML = `
+                <p style="padding: 20px;">
+                    共合并 <strong>${data.total_pages ?? '-'}</strong> 页，
+                    文件大小 <strong>${formatFileSize(data.total_size ?? 0)}</strong>
+                </p>
+            `;
 
             pdfmergePreviewBox.style.display = 'block';
-            pdfmergeDownload.style.display = 'inline-block'; // 确保下载按钮可见
+            //pdfmergeDownload.style.display = 'inline-block'; // 确保下载按钮可见
 
         } catch (err) {
             pdfmergeLoader.style.display = 'none';

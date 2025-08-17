@@ -513,6 +513,141 @@ async def pdf_to_images(
         logger.error(f"PDF 转换失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"PDF 转换失败: {str(e)}")
 
+# PDF合并相关的导入和代码
+
+@app.post("/api/pdfmerge/preview")
+async def pdfmerge_preview_api(
+    files: List[UploadFile] = File(...),
+    merge_options: List[str] = Form(default=[])
+):
+    """
+    PDF合并预览接口，返回合并后的统计信息
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="没有提供文件。")
+    
+    if len(files) < 2:
+        raise HTTPException(status_code=400, detail="至少需要上传两个PDF文件才能合并。")
+
+    try:
+        total_pages = 0
+        total_size = 0
+        
+        # 验证文件并计算统计信息
+        for file in files:
+            if not file.filename.lower().endswith('.pdf'):
+                raise HTTPException(status_code=400, detail=f"文件 {file.filename} 不是PDF格式。")
+            
+            # 读取文件内容计算大小
+            content = await file.read()
+            total_size += len(content)
+            
+            # 计算页数
+            pdf_document = fitz.open(stream=content, filetype="pdf")
+            total_pages += pdf_document.page_count
+            pdf_document.close()
+            
+            # 重置文件指针
+            await file.seek(0)
+        
+        # 如果选择了添加空白页选项，需要额外计算
+        if "add_blank_page" in merge_options and len(files) > 1:
+            # 在文件之间添加空白页，n个文件需要n-1个空白页
+            total_pages += (len(files) - 1)
+        
+        # 如果选择了添加目录页选项
+        if "add_toc" in merge_options:
+            total_pages += 1  # 添加一个目录页
+        
+        return JSONResponse(content={
+            "total_pages": total_pages,
+            "total_size": total_size,
+            "actions": merge_options
+        })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"PDF合并预览时发生错误: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"服务器内部错误: {e}")
+
+
+@app.post("/api/pdfmerge")
+async def pdfmerge_api(
+    files: List[UploadFile] = File(...),
+    merge_options: List[str] = Form(default=[])
+):
+    """
+    PDF合并接口，返回合并后的PDF文件
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="没有提供文件。")
+    
+    if len(files) < 2:
+        raise HTTPException(status_code=400, detail="至少需要上传两个PDF文件才能合并。")
+
+    try:
+        # 创建一个新的PDF文档用于合并
+        merged_pdf = fitz.open()
+        
+        # 如果选择了添加目录页选项，先添加目录页
+        if "add_toc" in merge_options:
+            toc_page = merged_pdf.new_page()
+            # 添加目录标题
+            toc_page.insert_text((50, 50), "目录", fontsize=20, color=(0, 0, 0))
+            y_position = 100
+            
+            # 添加各个文件的条目
+            for i, file in enumerate(files):
+                filename = sanitize_filename(file.filename)
+                toc_page.insert_text((70, y_position), f"{i+1}. {filename}", fontsize=12, color=(0, 0, 0))
+                y_position += 20
+
+        # 逐个处理每个PDF文件
+        for i, file in enumerate(files):
+            if not file.filename.lower().endswith('.pdf'):
+                raise HTTPException(status_code=400, detail=f"文件 {file.filename} 不是PDF格式。")
+            
+            # 读取文件内容
+            content = await file.read()
+            
+            # 打开PDF文件
+            pdf_document = fitz.open(stream=content, filetype="pdf")
+            
+            # 将所有页面插入到合并的PDF中
+            merged_pdf.insert_pdf(pdf_document)
+            
+            # 关闭当前PDF文件
+            pdf_document.close()
+            
+            # 如果选择了添加空白页选项，且不是最后一个文件，则添加空白页
+            if "add_blank_page" in merge_options and i < len(files) - 1:
+                blank_page = merged_pdf.new_page()
+                # 可以在空白页上添加"分页"文字（可选）
+                # blank_page.insert_text((50, 50), "分页", fontsize=12, color=(0.5, 0.5, 0.5))
+
+        # 将合并后的PDF保存到内存中
+        output_buffer = BytesIO()
+        merged_pdf.save(output_buffer)
+        merged_pdf.close()
+        
+        # 重置缓冲区指针
+        output_buffer.seek(0)
+        
+        # 生成文件名
+        merged_filename = "merged_pdf.pdf"
+        
+        return StreamingResponse(
+            output_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={merged_filename}"}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"PDF合并时发生错误: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"服务器内部错误: {e}")
 
 @app.get("/health")
 def health_check():
