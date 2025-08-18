@@ -841,11 +841,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 heartIcon.classList.add('disabled');
                 updateHeartMessage(data.total_clicks);
             } else {
-                alert('点赞失败，请稍后再试');
+                alert('哎呀，点 ❤️ 没成功，请稍后再试吧～');
             }
         } catch (err) {
             console.error('点赞请求失败:', err);
-            alert('网络错误，请稍后再试');
+            alert('网络好像打了个盹，请稍后再试哦');
         }
     });
 
@@ -856,13 +856,13 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(`${API_BASE_URL}/api/heart-stats`)
                 .then(res => res.json())
                 .then(data => {
-                    heartMessage.textContent = `谢谢你，以及其他 ${data.total_clicks} 位支持的朋友 ❤️`;
+                    heartMessage.textContent = `你和 ${data.total_clicks - 1} 位朋友一起点亮了 ❤️`;
                 })
                 .catch(err => {
-                    heartMessage.textContent = '谢谢你 ❤️';
+                    heartMessage.textContent = '谢谢你的支持 ❤️';
                 });
         } else {
-            heartMessage.textContent = `谢谢你，以及其他 ${total} 位支持的朋友 ❤️`;
+            heartMessage.textContent = `你和 ${total - 1} 位朋友一起点亮了 ❤️`;
         }
     }
 

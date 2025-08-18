@@ -885,7 +885,7 @@ async def heart_click(request: Request):
     total = cursor.fetchone()[0]
     conn.close()
 
-    return JSONResponse(content={"message": "Thank you!", "total_clicks": total - 1})
+    return JSONResponse(content={"message": "Thank you!", "total_clicks": total})
 
 
 @app.get("/api/heart-stats")
