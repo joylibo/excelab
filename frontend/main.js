@@ -132,15 +132,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            if (prefix === 'split' && files.length > 0) {
-                getColumnsForSplit(files[0]);
-            }
+        if (prefix === 'split' && files.length > 0) {
+            getColumnsForSplit(files[0]);
+        }
+        
+        if (prefix === 'deduplicate' && files.length > 0) {
+            getColumnsForDeduplicate(files[0]);
+        }
         } else {
             submitButton.disabled = true;
             if (prefix === 'split') {
                 const select = document.getElementById('split-column');
                 select.disabled = true;
                 select.innerHTML = '<option value="">请先上传文件</option>';
+            }
+            if (prefix === 'deduplicate') {
+                const deduplicateSelect = document.getElementById('deduplicate-column');
+                const valueSelect = document.getElementById('value-column');
+                deduplicateSelect.disabled = true;
+                deduplicateSelect.innerHTML = '<option value="">请先上传文件</option>';
+                valueSelect.disabled = true;
+                valueSelect.innerHTML = '<option value="">请选择比较值列</option>';
             }
         }
     }
@@ -866,7 +878,222 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // 获取去重文件的列名
+    async function getColumnsForDeduplicate(file) {
+        const deduplicateSelect = document.getElementById('deduplicate-column');
+        const valueSelect = document.getElementById('value-column');
+        const errorElement = document.getElementById('deduplicate-error');
+        
+        deduplicateSelect.disabled = true;
+        deduplicateSelect.innerHTML = '<option value="">正在获取列名...</option>';
+        valueSelect.disabled = true;
+        valueSelect.innerHTML = '<option value="">请选择比较值列</option>';
+        
+        logEvent('开始获取去重列名');
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await fetch(`${API_BASE_URL}/api/split/columns`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                 const errorData = await response.json().catch(() => ({}));
+                 throw new Error(errorData.detail || `获取列名失败 (${response.status})`);
+            }
+
+            const data = await response.json();
+            const columns = data.columns;
+            
+            // 填充去重依据列下拉框
+            deduplicateSelect.innerHTML = '<option value="">请选择去重依据列</option>';
+            columns.forEach(col => {
+                const option = document.createElement('option');
+                option.value = col;
+                option.textContent = col;
+                deduplicateSelect.appendChild(option);
+            });
+            deduplicateSelect.disabled = false;
+            
+    // 填充比较值列下拉框
+    valueSelect.innerHTML = '<option value="">请选择比较值列</option>';
+    columns.forEach(col => {
+        const option = document.createElement('option');
+        option.value = col;
+        option.textContent = col;
+        valueSelect.appendChild(option);
+    });
+    valueSelect.disabled = false;
+    
+    logEvent(`获取到 ${columns.length} 个列名`);
+        } catch (error) {
+            deduplicateSelect.innerHTML = '<option value="">获取列名失败</option>';
+            showError(errorElement, error.message);
+            logEvent('获取列名失败: ' + error.message);
+        }
+    }
+
+    // 去重逻辑选项变化事件
+    document.querySelectorAll('input[name="deduplicate_logic"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const valueColumnWrapper = document.getElementById('value-column-wrapper');
+            if (this.value === 'max' || this.value === 'min') {
+                valueColumnWrapper.style.display = 'block';
+            } else {
+                valueColumnWrapper.style.display = 'none';
+            }
+        });
+    });
+
+    // 去重功能提交
+    document.getElementById('deduplicate-button').addEventListener('click', async (e) => {
+        e.preventDefault();
+        const prefix = 'deduplicate';
+        const fileInput = document.getElementById(`${prefix}-file-input`);
+        const loader = document.getElementById(`${prefix}-loader`);
+        const progress = document.getElementById(`${prefix}-progress`);
+        const errorElement = document.getElementById(`${prefix}-error`);
+        const successElement = document.getElementById(`${prefix}-success`);
+        const preview = document.getElementById(`${prefix}-preview`);
+        const statsContainer = document.getElementById('deduplicate-stats');
+        const previewContent = document.getElementById('deduplicate-preview-content');
+        const downloadBtn = document.getElementById('deduplicate-download');
+
+        const deduplicateColumn = document.getElementById('deduplicate-column').value;
+        const logic = document.querySelector('input[name="deduplicate_logic"]:checked').value;
+        const valueColumn = document.getElementById('value-column').value;
+
+        if (fileInput.files.length === 0) { showError(errorElement, '请先上传文件'); return; }
+        if (!deduplicateColumn) { showError(errorElement, '请选择去重依据列'); return; }
+        if ((logic === 'max' || logic === 'min') && !valueColumn) { 
+            showError(errorElement, '请选择比较值列'); return; 
+        }
+
+        preview.style.display = 'none';
+        errorElement.style.display = 'none';
+        successElement.style.display = 'none';
+        loader.style.display = 'block';
+        progress.style.width = '0%';
+        logEvent(`开始去重操作: 依据列=${deduplicateColumn}, 逻辑=${logic}, 比较列=${valueColumn || '无'}`);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('deduplicate_column', deduplicateColumn);
+            formData.append('logic', logic);
+            if (valueColumn) {
+                formData.append('value_column', valueColumn);
+            }
+
+            let progressInterval = simulateProgress(progress, 1500);
+            const previewResponse = await fetch(`${API_BASE_URL}/api/deduplicate/preview`, { 
+                method: 'POST', 
+                body: formData 
+            });
+            clearInterval(progressInterval);
+            progress.style.width = '100%';
+
+            if (!previewResponse.ok) {
+                const errorData = await previewResponse.json().catch(() => ({}));
+                throw new Error(errorData.detail || `预览请求失败 (${previewResponse.status})`);
+            }
+
+            const previewData = await previewResponse.json();
+            logEvent('去重预览数据获取成功');
+
+            // 动态生成统计信息
+            statsContainer.innerHTML = `
+                <div class="stat-item"><div>原始行数</div><div class="stat-value">${previewData.original_rows}</div></div>
+                <div class="stat-item"><div>去重后行数</div><div class="stat-value">${previewData.deduplicated_rows}</div></div>
+                <div class="stat-item"><div>去重率</div><div class="stat-value">${previewData.deduplication_rate}%</div></div>
+                <div class="stat-item"><div>逻辑</div><div class="stat-value">${getLogicDisplayName(previewData.logic)}</div></div>
+            `;
+
+            let tableHTML = '';
+            if (previewData.preview_data && previewData.preview_data.length > 0 && previewData.preview_columns) {
+                tableHTML = '<table><thead><tr>';
+                previewData.preview_columns.forEach(col => { tableHTML += `<th>${escapeHtml(col)}</th>`; });
+                tableHTML += '</tr></thead><tbody>';
+                previewData.preview_data.forEach(row => {
+                    tableHTML += '<tr>';
+                    previewData.preview_columns.forEach(col => {
+                        const cellValue = row[col] != null ? row[col] : "";
+                        tableHTML += `<td>${escapeHtml(String(cellValue))}</td>`;
+                    });
+                    tableHTML += '</tr>';
+                });
+                tableHTML += '</tbody></table>';
+            } else {
+                 tableHTML = '<p>去重后数据为空或无法生成预览。</p>';
+            }
+            previewContent.innerHTML = tableHTML;
+
+            loader.style.display = 'none';
+            const rowsRemoved = previewData.original_rows - previewData.deduplicated_rows;
+            successElement.textContent = `去重完成！移除了 ${rowsRemoved} 行重复数据，去重率 ${previewData.deduplication_rate}%。`;
+            successElement.style.display = 'block';
+            preview.style.display = 'block';
+
+            downloadBtn.onclick = async function(event) {
+                event.preventDefault();
+                logEvent('用户点击下载去重文件按钮');
+                loader.style.display = 'block';
+                progress.style.width = '0%';
+                errorElement.style.display = 'none';
+                successElement.style.display = 'none';
+                let downloadProgressInterval = simulateProgress(progress, 2000);
+
+                try {
+                    const downloadResponse = await fetch(`${API_BASE_URL}/api/deduplicate`, { 
+                        method: 'POST', 
+                        body: formData 
+                    });
+                    clearInterval(downloadProgressInterval);
+                    progress.style.width = '100%';
+
+                    if (!downloadResponse.ok) {
+                        const errorData = await downloadResponse.json().catch(() => ({}));
+                        throw new Error(errorData.detail || `下载请求失败 (${downloadResponse.status})`);
+                    }
+
+                    const blob = await downloadResponse.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const tempLink = document.createElement('a');
+                    tempLink.href = url;
+                    tempLink.download = 'deduplicated_data.xlsx';
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+                    document.body.removeChild(tempLink);
+                    window.URL.revokeObjectURL(url);
+
+                    loader.style.display = 'none';
+                    successElement.textContent = '去重后的文件下载成功！';
+                    successElement.style.display = 'block';
+                    logEvent('去重文件下载成功');
+                } catch (downloadError) {
+                     loader.style.display = 'none';
+                     showError(errorElement, `下载失败: ${downloadError.message}`);
+                     logEvent('下载失败: ' + downloadError.message);
+                }
+            };
+        } catch (error) {
+            loader.style.display = 'none';
+            showError(errorElement, error.message);
+            logEvent('去重失败: ' + error.message);
+        }
+    });
+
+    // 获取逻辑显示名称
+    function getLogicDisplayName(logic) {
+        switch(logic) {
+            case 'random': return '随机保留';
+            case 'max': return '取大（保留最大值）';
+            case 'min': return '取小（保留最小值）';
+            default: return logic;
+        }
+    }
+
     // 页面加载时初始化
     initHeartState();
 });
-

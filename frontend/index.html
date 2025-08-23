@@ -38,10 +38,77 @@
                     <button class="tab-button active" data-tab="merge">表格合并</button>
                     <button class="tab-button" data-tab="split">表格拆分</button>
                     <button class="tab-button" data-tab="clean">表格清理</button>
+                    <button class="tab-button" data-tab="deduplicate">表格去重</button>
                 </div>
             </div>
 
             <div class="tab-content">
+                <div id="deduplicate" class="tab-pane">
+                    <div class="file-upload-wrapper" id="deduplicate-upload-area">
+                        <div class="file-upload-icon"><i class="fa-solid fa-file-import"></i></div>
+                        <span class="file-upload-label">点击或拖拽表格文件到此处</span>
+                        <p class="info-text">支持 Excel (.xlsx, .xls) 和 CSV 文件格式</p>
+                        <input type="file" class="file-input" id="deduplicate-file-input" accept=".xlsx, .xls, .csv">
+                    </div>
+                    
+                    <div id="deduplicate-file-list" class="file-list"></div>
+                    
+                    <div class="options-card">
+                        <h4><i class="fa-solid fa-sliders"></i> 去重选项</h4>
+                        <div class="select-wrapper">
+                            <label for="deduplicate-column">选择去重依据列：</label>
+                            <select id="deduplicate-column" disabled>
+                                <option value="">请先上传文件</option>
+                            </select>
+                        </div>
+                        <div class="option-group" style="margin: 20px 0;">
+                            <label class="option-label">
+                                <input type="radio" name="deduplicate_logic" value="random" checked>
+                                <span class="option-text">随机保留</span>
+                            </label>
+                            <label class="option-label">
+                                <input type="radio" name="deduplicate_logic" value="max">
+                                <span class="option-text">取大（保留最大值）</span>
+                            </label>
+                            <label class="option-label">
+                                <input type="radio" name="deduplicate_logic" value="min">
+                                <span class="option-text">取小（保留最小值）</span>
+                            </label>
+                        </div>
+                        <div class="select-wrapper" id="value-column-wrapper" style="display: none; margin-top: 20px;">
+                            <label for="value-column">选择比较值列：</label>
+                            <select id="value-column" disabled>
+                                <option value="">请选择比较值列</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button class="submit-btn" id="deduplicate-button" disabled>
+                        <i class="fa-solid fa-filter"></i> 去重表格
+                    </button>
+                    
+                    <div id="deduplicate-loader" class="loader">
+                        <div class="spinner"></div>
+                        <p>正在处理您的文件，请稍候...</p>
+                        <div class="progress-bar"><div class="progress" id="deduplicate-progress"></div></div>
+                    </div>
+                    
+                    <div id="deduplicate-error" class="message-box error"></div>
+                    <div id="deduplicate-success" class="message-box success"></div>
+
+                    <div class="preview-box" id="deduplicate-preview">
+                        <div class="preview-title">
+                            <i class="fa-solid fa-check-circle"></i>
+                            <h3>去重结果</h3>
+                        </div>
+                        <div class="stats" id="deduplicate-stats">
+                             </div>
+                        <div class="preview-content" id="deduplicate-preview-content"></div>
+                        <a href="#" class="download-btn" id="deduplicate-download">
+                            <i class="fa-solid fa-download"></i> 下载去重后的文件
+                        </a>
+                    </div>
+                </div>
                 <div id="merge" class="tab-pane active">
                     <div class="file-upload-wrapper" id="merge-upload-area">
                         <div class="file-upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>

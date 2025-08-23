@@ -65,6 +65,11 @@ class CleanOptions(BaseModel):
     remove_empty_cols: bool = True
     trim_spaces: bool = False
 
+class DeduplicateLogic(str, Enum):
+    RANDOM = "random"
+    MAX = "max"
+    MIN = "min"
+
 # --- FastAPI 应用实例 ---
 app = FastAPI(
     title="Excelab Pro - Backend",
@@ -244,6 +249,50 @@ def clean_dataframe(df: pd.DataFrame, options: CleanOptions) -> pd.DataFrame:
         cleaned_df[string_columns] = cleaned_df[string_columns].apply(lambda x: x.str.strip() if x.dtype == "object" else x)
 
     return cleaned_df
+
+def deduplicate_dataframe(df: pd.DataFrame, deduplicate_column: str, logic: DeduplicateLogic, value_column: Optional[str] = None) -> pd.DataFrame:
+    """
+    根据指定列和逻辑对DataFrame进行去重
+    
+    Args:
+        df: 输入的DataFrame
+        deduplicate_column: 去重依据列
+        logic: 去重逻辑 (random, max, min)
+        value_column: 比较值列 (用于max/min逻辑)
+    
+    Returns:
+        去重后的DataFrame
+    """
+    if deduplicate_column not in df.columns:
+        raise ValueError(f"去重列 '{deduplicate_column}' 在数据中不存在")
+    
+    if logic in [DeduplicateLogic.MAX, DeduplicateLogic.MIN] and not value_column:
+        raise ValueError(f"使用 {logic} 逻辑时需要指定比较值列")
+    
+    if value_column and value_column not in df.columns:
+        raise ValueError(f"比较值列 '{value_column}' 在数据中不存在")
+    
+    # 根据去重逻辑进行分组处理
+    if logic == DeduplicateLogic.RANDOM:
+        # 随机保留重复项中的一行
+        deduplicated_df = df.groupby(deduplicate_column, as_index=False).apply(
+            lambda x: x.sample(1) if len(x) > 1 else x
+        ).reset_index(drop=True)
+        
+    elif logic == DeduplicateLogic.MAX:
+        # 保留比较值最大的行
+        deduplicated_df = df.loc[df.groupby(deduplicate_column)[value_column].idxmax()]
+        
+    elif logic == DeduplicateLogic.MIN:
+        # 保留比较值最小的行
+        deduplicated_df = df.loc[df.groupby(deduplicate_column)[value_column].idxmin()]
+        
+    else:
+        raise ValueError(f"不支持的去重逻辑: {logic}")
+    
+    # 重置索引
+    deduplicated_df.reset_index(drop=True, inplace=True)
+    return deduplicated_df
 
 # --- API 端点 ---
 
@@ -741,6 +790,128 @@ async def pdfmerge_api(
         raise
     except Exception as e:
         logger.error(f"PDF合并时发生错误: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"服务器内部错误: {e}")
+
+@app.post("/api/deduplicate/preview")
+async def deduplicate_preview_api(
+    file: UploadFile = File(...),
+    deduplicate_column: str = Form(...),
+    logic: DeduplicateLogic = Form(...),
+    value_column: Optional[str] = Form(None),
+    preview_rows: int = Form(5) # 获取前N行用于预览
+):
+    """
+    接收一个表格文件和去重选项，返回去重预览（统计信息和前几行数据）。
+    """
+    if not file:
+        raise HTTPException(status_code=400, detail="没有提供文件。")
+
+    try:
+        content = BytesIO(await file.read())
+        filename = file.filename.lower()
+        df_original = None
+
+        if filename.endswith((".xlsx", ".xls")):
+            excel_file = pd.ExcelFile(content, engine='openpyxl')
+            df_original = excel_file.parse(excel_file.sheet_names[0]) # 通常处理第一个sheet
+        elif filename.endswith(".csv"):
+            try:
+                df_original = pd.read_csv(content)
+            except UnicodeDecodeError:
+                content.seek(0)
+                df_original = pd.read_csv(content, encoding='gbk')
+
+        if df_original is None or df_original.empty:
+            raise HTTPException(status_code=400, detail="文件为空或无法解析。")
+
+        original_rows, original_cols = df_original.shape
+        
+        # 应用去重
+        df_deduplicated = deduplicate_dataframe(df_original, deduplicate_column, logic, value_column)
+        
+        deduplicated_rows, deduplicated_cols = df_deduplicated.shape
+
+        # 计算去重率
+        deduplication_rate = round((1 - deduplicated_rows / original_rows) * 100, 2) if original_rows > 0 else 0
+
+        # 获取预览数据 (去重后的)
+        preview_df = df_deduplicated.head(preview_rows)
+        # 使用 prepare_dataframe_for_json_serialization 处理数据类型
+        preview_df_processed = prepare_dataframe_for_json_serialization(preview_df)
+        preview_json = preview_df_processed.to_dict(orient='records')
+        columns = preview_df.columns.tolist()
+
+        return JSONResponse(content={
+            "original_rows": original_rows,
+            "original_cols": original_cols,
+            "deduplicated_rows": deduplicated_rows,
+            "deduplicated_cols": deduplicated_cols,
+            "deduplication_rate": deduplication_rate,
+            "preview_columns": columns,
+            "preview_data": preview_json,
+            "logic": logic,
+            "deduplicate_column": deduplicate_column,
+            "value_column": value_column
+        })
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise # Re-raise HTTPExceptions
+    except Exception as e:
+        logger.error(f"生成去重预览时发生错误: {e}")
+        raise HTTPException(status_code=500, detail=f"服务器内部错误: {e}")
+
+
+@app.post("/api/deduplicate")
+async def deduplicate_file_api(
+    file: UploadFile = File(...),
+    deduplicate_column: str = Form(...),
+    logic: DeduplicateLogic = Form(...),
+    value_column: Optional[str] = Form(None)
+):
+    """
+    接收一个表格文件和去重选项，返回去重后的文件。
+    """
+    if not file:
+        raise HTTPException(status_code=400, detail="没有提供文件。")
+
+    try:
+        content = BytesIO(await file.read())
+        filename = file.filename.lower()
+        df_original = None
+
+        if filename.endswith((".xlsx", ".xls")):
+            excel_file = pd.ExcelFile(content, engine='openpyxl')
+            df_original = excel_file.parse(excel_file.sheet_names[0])
+        elif filename.endswith(".csv"):
+            try:
+                df_original = pd.read_csv(content)
+            except UnicodeDecodeError:
+                content.seek(0)
+                df_original = pd.read_csv(content, encoding='gbk')
+
+        if df_original is None or df_original.empty:
+            raise HTTPException(status_code=400, detail="文件为空或无法解析。")
+
+        # 应用去重
+        df_deduplicated = deduplicate_dataframe(df_original, deduplicate_column, logic, value_column)
+
+        # 将去重后的 DataFrame 导出为 Excel 字节流
+        output = dataframe_to_excel_bytes(df_deduplicated)
+
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=deduplicated_data.xlsx"}
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise # Re-raise HTTPExceptions
+    except Exception as e:
+        logger.error(f"去重文件时发生错误: {e}")
         raise HTTPException(status_code=500, detail=f"服务器内部错误: {e}")
 
 @app.post("/api/image_convert")
